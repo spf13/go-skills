@@ -251,3 +251,248 @@ In tests, inject `afero.NewMemMapFs()` to completely eliminate disk I/O and prev
 ### 6. `cmp` over DeepEqual
 
 For comparing complex structs or maps, use `github.com/google/go-cmp/cmp` for rich, readable diffs instead of the strict `reflect.DeepEqual`.
+
+## Generics (Go 1.18+)
+
+Generics exist to eliminate duplicated algorithms, not to create type hierarchies. If you are thinking about generics in terms of inheritance or polymorphism, stop — you are writing Java.
+
+### When to Use Generics
+
+Use generics when you have the **same algorithm** that needs to operate on **multiple concrete types**:
+
+```go
+// Good: generic algorithm, concrete types as inputs
+func Map[S, T any](slice []S, f func(S) T) []T {
+    result := make([]T, len(slice))
+    for i, v := range slice {
+        result[i] = f(v)
+    }
+    return result
+}
+
+// Good: constraint expresses a meaningful requirement
+func Min[T cmp.Ordered](a, b T) T {
+    if a < b {
+        return a
+    }
+    return b
+}
+```
+
+### When NOT to Use Generics
+
+```go
+// Bad: generic interface for polymorphism — this is Java
+type Repository[T any] interface {
+    Find(id string) (T, error)
+    Save(entity T) error
+}
+
+// Good: a concrete interface for what you actually need
+type UserStore interface {
+    FindUser(id string) (*User, error)
+    SaveUser(u *User) error
+}
+```
+
+- **Do not** create generic base types, generic services, or generic repositories.
+- **Do not** use `any` as a constraint to mean "I don't know the type yet." That's a design smell.
+- **Do** use `comparable` when you need map keys or equality checks.
+- **Do** use `cmp.Ordered` when you need `<`, `>`, `<=`, `>=`.
+- Start with a concrete implementation. Generify only when you have the same logic repeated across 3+ types.
+
+## Standard Library: Use the New Packages
+
+LLMs frequently suggest third-party utilities or write manual helpers that have been in the standard library since Go 1.21. **Always check stdlib first.**
+
+### `slices` package (Go 1.21)
+
+```go
+import "slices"
+
+// Searching and testing
+slices.Contains(s, "value")
+slices.Index(s, "value")           // returns -1 if not found
+slices.ContainsFunc(s, func(v string) bool { return v == "x" })
+
+// Sorting
+slices.Sort(s)                     // sorts in place, works on any ordered type
+slices.SortFunc(s, func(a, b T) int { return cmp.Compare(a.Name, b.Name) })
+slices.IsSorted(s)
+
+// Manipulation
+slices.Reverse(s)
+slices.Compact(s)                  // removes consecutive duplicates
+slices.Delete(s, i, j)            // removes elements [i, j)
+slices.Clone(s)                   // shallow copy
+slices.Concat(s1, s2, s3)         // concatenate multiple slices (1.22)
+```
+
+Never write `sort.Slice(s, func(i, j int) bool { return s[i] < s[j] })` when `slices.Sort(s)` exists.
+
+### `maps` package (Go 1.21)
+
+```go
+import "maps"
+
+maps.Keys(m)        // returns an iterator over keys (1.23) / []K (earlier)
+maps.Values(m)      // returns an iterator over values
+maps.Clone(m)       // shallow copy
+maps.Copy(dst, src) // copies all entries from src into dst
+maps.Delete(m, func(k, v T) bool { ... })  // delete entries matching predicate
+maps.Equal(m1, m2)  // reports whether two maps are equal
+```
+
+### `cmp` package (Go 1.21)
+
+```go
+import "cmp"
+
+cmp.Compare(a, b)    // returns -1, 0, or 1; works on any cmp.Ordered type
+cmp.Or(a, b, c)      // returns first non-zero value — replaces ternary workarounds
+min(a, b)            // built-in since Go 1.21
+max(a, b)            // built-in since Go 1.21
+```
+
+`cmp.Or` is especially useful for default-value patterns:
+
+```go
+// Instead of: if cfg.Timeout == 0 { cfg.Timeout = 30 * time.Second }
+cfg.Timeout = cmp.Or(cfg.Timeout, 30*time.Second)
+```
+
+### `errors.Join` (Go 1.20)
+
+```go
+// Combine multiple errors — no third-party library needed
+err := errors.Join(err1, err2, err3)
+
+// Works correctly with errors.Is and errors.As
+if errors.Is(err, ErrNotFound) { ... }
+```
+
+Use this instead of `fmt.Errorf("%w; %w", err1, err2)` or any `multierr` package.
+
+## Concurrency: Modern Patterns
+
+### `sync/atomic` Typed Values (Go 1.19)
+
+Use the typed atomic values instead of the function-based API:
+
+```go
+// Old (still works but avoid for new code)
+var count int64
+atomic.AddInt64(&count, 1)
+val := atomic.LoadInt64(&count)
+
+// New — type-safe, no pointer arithmetic
+var count atomic.Int64
+count.Add(1)
+val := count.Load()
+
+// Other typed atomics
+var flag  atomic.Bool
+var ptr   atomic.Pointer[MyStruct]
+var val32 atomic.Int32
+var val64 atomic.Uint64
+```
+
+### `context.WithoutCancel` (Go 1.21)
+
+When you need to detach a context's cancellation but preserve its values (e.g., for a background task that should outlive a request):
+
+```go
+// The background job should keep running even after the HTTP request context cancels
+bgCtx := context.WithoutCancel(requestCtx)
+go doBackgroundWork(bgCtx)
+```
+
+## HTTP: Use the Improved stdlib Router (Go 1.22)
+
+LLMs reflexively recommend gorilla/mux or chi for any routing beyond the trivial. Since Go 1.22, the standard `net/http` ServeMux handles method and path-parameter routing natively.
+
+```go
+mux := http.NewServeMux()
+
+// Method-scoped routes
+mux.HandleFunc("GET /users", listUsers)
+mux.HandleFunc("POST /users", createUser)
+
+// Path parameters — accessed via r.PathValue
+mux.HandleFunc("GET /users/{id}", func(w http.ResponseWriter, r *http.Request) {
+    id := r.PathValue("id")
+    // ...
+})
+
+// Wildcard
+mux.HandleFunc("GET /files/{path...}", serveFile)
+```
+
+Reach for chi or gorilla/mux only when you need middleware chaining, named route generation, or regex constraints. For pure method + path routing, the stdlib is sufficient.
+
+## Syntax: Use Current Go
+
+LLMs frequently generate outdated syntax. Know the current idioms:
+
+### Range over Integer (Go 1.22)
+
+```go
+// Old
+for i := 0; i < 10; i++ { ... }
+
+// New
+for i := range 10 { ... }
+```
+
+### Build Constraints
+
+```go
+// Old (deprecated — do not generate)
+// +build linux darwin
+
+// Current
+//go:build linux || darwin
+```
+
+The `//go:build` form is required since Go 1.17. Never emit the old `// +build` syntax.
+
+### `any` Instead of `interface{}`
+
+```go
+// Old
+func Print(v interface{}) { ... }
+
+// Current — `any` is a built-in alias for interface{} since Go 1.18
+func Print(v any) { ... }
+```
+
+## Structured Logging with `log/slog` (Go 1.21)
+
+The skill note above covers basic setup. The patterns LLMs most often get wrong:
+
+```go
+// Pass a logger via context for request-scoped logging
+func HandleRequest(ctx context.Context, r *Request) {
+    logger := slog.With("request_id", r.ID, "user_id", r.UserID)
+    // All subsequent log calls carry these fields automatically
+    logger.Info("handling request")
+    process(ctx, logger, r)
+}
+
+// Group related fields
+logger.With(slog.Group("http",
+    slog.String("method", r.Method),
+    slog.String("path", r.URL.Path),
+    slog.Int("status", status),
+))
+
+// Log at the right level — LLMs over-use Info
+logger.Debug("cache miss", "key", key)     // internal state, high volume
+logger.Info("server started", "addr", addr) // lifecycle events
+logger.Warn("retrying", "attempt", n)       // recoverable problems
+logger.Error("request failed", "err", err)  // needs attention
+```
+
+- **Never** use a package-level `log` or `slog` global beyond `main`. Pass `*slog.Logger` as a dependency.
+- **Never** log and return an error. Log at the boundary, return the error through the call stack.
+- Use `slog.Default()` as the fallback only in `main` or in libraries when no logger is provided.
