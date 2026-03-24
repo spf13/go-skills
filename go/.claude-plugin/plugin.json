@@ -1,0 +1,13 @@
+{
+  "name": "go",
+  "description": "Idiomatic Go patterns and best practices — package design, error handling, interfaces, concurrency, testing, and project layout. Written by spf13 (former Go team lead, author of Cobra, Viper, Hugo, Afero).",
+  "version": "1.0.0",
+  "author": {
+    "name": "Steve Francia",
+    "email": "steve.francia@gmail.com"
+  },
+  "homepage": "https://github.com/mosajjal/go-skills",
+  "repository": "https://github.com/mosajjal/go-skills",
+  "license": "MIT",
+  "keywords": ["go", "golang", "idiomatic", "patterns", "concurrency", "testing"]
+}

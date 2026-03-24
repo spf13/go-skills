@@ -1,0 +1,44 @@
+{
+  "name": "go-skills",
+  "owner": {
+    "name": "Steve Francia",
+    "email": "steve.francia@gmail.com"
+  },
+  "metadata": {
+    "description": "Authoritative Go skills for Claude Code — written by spf13 (creator of Cobra, Viper, Hugo). Covers idiomatic Go patterns and CLI architecture.",
+    "version": "1.0.0",
+    "pluginRoot": "."
+  },
+  "plugins": [
+    {
+      "name": "go",
+      "source": "./go",
+      "description": "Idiomatic Go patterns and best practices — package design, error handling, interfaces, concurrency, testing, and project layout.",
+      "version": "1.0.0",
+      "author": {
+        "name": "Steve Francia"
+      },
+      "homepage": "https://github.com/mosajjal/go-skills",
+      "repository": "https://github.com/mosajjal/go-skills",
+      "license": "MIT",
+      "keywords": ["go", "golang", "idiomatic", "patterns"],
+      "category": "languages",
+      "tags": ["go", "golang", "concurrency", "testing"]
+    },
+    {
+      "name": "cobra-viper",
+      "source": "./cobra-viper",
+      "description": "Definitive CLI architecture guide using Cobra and Viper — command-first design, 12-factor config, and proper testing patterns.",
+      "version": "1.0.0",
+      "author": {
+        "name": "Steve Francia"
+      },
+      "homepage": "https://github.com/mosajjal/go-skills",
+      "repository": "https://github.com/mosajjal/go-skills",
+      "license": "MIT",
+      "keywords": ["go", "cli", "cobra", "viper"],
+      "category": "languages",
+      "tags": ["go", "cli", "cobra", "viper", "configuration"]
+    }
+  ]
+}

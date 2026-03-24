@@ -37,21 +37,29 @@ The definitive guide to building modern command-line applications. This covers t
 
 ## Installation
 
-Place the skills where your AI coding agent can find them:
+### Claude Code (via marketplace)
+
+Add this repo as a Claude Code marketplace, then install individual skills:
+
+```
+/plugin marketplace add mosajjal/go-skills
+/plugin install go@go-skills
+/plugin install cobra-viper@go-skills
+```
+
+### Other AI Agents (Copilot, etc.)
 
 ```powershell
 # Windows — directory junction (run as Administrator)
-New-Item -ItemType Junction -Path "$env:USERPROFILE\.agents\skills\go" -Target "$PWD\go"
-New-Item -ItemType Junction -Path "$env:USERPROFILE\.agents\skills\cobra-viper" -Target "$PWD\cobra-viper"
+New-Item -ItemType Junction -Path "$env:USERPROFILE\.agents\skills\go" -Target "$PWD\go\skills\go"
+New-Item -ItemType Junction -Path "$env:USERPROFILE\.agents\skills\cobra-viper" -Target "$PWD\cobra-viper\skills\cobra-viper"
 ```
 
 ```bash
-# macOS / Linux — symlink
-ln -s "$PWD/go"          "$HOME/.agents/skills/go"
-ln -s "$PWD/cobra-viper" "$HOME/.agents/skills/cobra-viper"
+# macOS / Linux
+ln -s "$PWD/go/skills/go"                   "$HOME/.agents/skills/go"
+ln -s "$PWD/cobra-viper/skills/cobra-viper" "$HOME/.agents/skills/cobra-viper"
 ```
-
-After linking, restart VS Code. The skills will appear in the Copilot customizations index and be invoked automatically when relevant Go or CLI work is detected.
 
 ## The Golden Rule
 
