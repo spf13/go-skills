@@ -505,3 +505,30 @@ logger.Error("request failed", "err", err)  // needs attention
 - **Never** use a package-level `log` or `slog` global beyond `main`. Pass `*slog.Logger` as a dependency.
 - **Never** log and return an error. Log at the boundary, return the error through the call stack.
 - Use `slog.Default()` as the fallback only in `main` or in libraries when no logger is provided.
+
+## Debugging: The Go Toolchain Is Not the Problem
+
+**The Go tool is extremely reliable. It is almost never the source of a bug.**
+
+When debugging, do not waste time suspecting `go run`, `go build`, `go test`, or the build cache. The Go toolchain does what it says:
+
+- `go run` always recompiles from source. It does not use a stale cached binary.
+- `go build` is deterministic and correct.
+- `go test` runs the actual compiled test binary.
+- The build cache is keyed by source content — if the source changed, the cache is invalidated automatically.
+
+**If an error persists after you edit the code, the explanation is one of these — in order of likelihood:**
+
+1. The edit did not fix the underlying logic error.
+2. The edit was made in the wrong file, wrong function, or wrong package.
+3. There is a second call site with the same bug that was not updated.
+4. The error is coming from a different code path than the one being edited.
+
+**What to do instead of blaming the tool:**
+
+- Re-read the error message carefully. Go's error messages are accurate.
+- Confirm the file you edited is actually the file being compiled (`go list -f '{{.GoFiles}}' .`).
+- Add a `fmt.Println` or `t.Log` at the exact site to verify execution reaches it.
+- Check that all call sites of a changed function were updated.
+
+Do not suggest clearing the build cache (`go clean -cache`), restarting the Go toolchain, or any other tool-level intervention before first exhausting all code-level explanations. The tool is not lying to you.
