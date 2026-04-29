@@ -85,6 +85,38 @@ myproject/
 └── go.sum
 ```
 
+### 3. Domain Packages for Service Applications
+
+When an application has genuinely distinct, independently-testable domains, give each its own top-level package. The rule is still **one level deep** — no `internal/` nesting, no Clean Architecture layers. Each package owns one concern. `main.go` wires them together.
+
+The signal to create a package: can this domain be described in one sentence, and does it have no knowledge of the other packages? If yes, it earns its own package.
+
+```
+// Idiomatic: A web service with distinct domain packages
+myservice/
+├── main.go        # wires everything together; no business logic here
+├── config/        # Config struct, env loading
+├── auth/          # identity verification, session middleware
+├── db/            # data store client + all queries
+├── storage/       # blob storage (S3, R2, GCS)
+├── billing/       # payment provider + credit ledger
+├── jobs/          # job lifecycle + queue dispatch + worker handler (same domain, one package)
+├── web/           # HTTP handlers + HTML templates + static assets (tightly coupled by design)
+├── transcribe/    # domain-specific processing — independent pure functions
+├── Makefile
+├── Dockerfile
+└── .env.example
+```
+
+**Rules for domain packages:**
+- Each package has **one clear purpose** — name it after what it does, not what layer it is (`jobs/`, not `service/`)
+- Packages do not import each other sideways — cycles are a sign of wrong boundaries; `main` is the wiring point
+- Related sub-concerns that always travel together stay in one package (e.g. job creation + worker handler both live in `jobs/` because they share the job lifecycle domain)
+- HTTP handlers and the templates they render belong together in `web/` — they are tightly coupled by design
+- Do not create `utils/`, `helpers/`, or `common/` packages — these are symptoms of unclear ownership
+
+**Anti-pattern to reject:** Clean Architecture / DDD layers (`service/`, `repository/`, `controller/`, `domain/`). These layer-named packages cause circular imports, force interface proliferation, and add zero clarity in Go. Domain-named packages (`auth/`, `billing/`, `jobs/`) are the correct middle ground between "too flat" and "over-engineered."
+
 ## Interface Design
 
 ### 1. Interfaces are Discovered, Not Designed Upfront
