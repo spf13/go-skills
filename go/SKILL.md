@@ -145,9 +145,44 @@ type Processor struct {
 
 Require the smallest interface possible as an input parameter (e.g., `io.Reader` instead of `*os.File`), but return a concrete struct so callers aren't forced to use type assertions to access specific fields or methods.
 
+## Library API Design
+
+### Domain Object as Entry Point
+
+When designing a Go library that wraps a stateful resource (a vault, a database connection, a config store), make that resource struct the primary object. Its methods return domain-typed sub-objects. **Avoid:**
+
+- Passing a config/resource struct as the first argument to every package-level function
+- Package-level global state (like pflag's default `FlagSet`) for library code that may be embedded
+
+**Do this instead:**
+
+```go
+// Open the primary resource once
+v, err := vault.Open(path)
+
+// Domain operations are methods on the primary object
+// Each call is stateless (reloads fresh) — no cached state on the struct
+idx, err := v.People()             // returns *people.Index, error
+note, err := v.Daily(time.Now())   // returns *daily.Note, error
+mtgs, err := v.Meetings()          // returns *meetings.Index, error
+
+// Domain types live in sub-packages — callers use type inference
+p, err := idx.FindOne("Steve")     // *people.Person
+```
+
+**Why this pattern:**
+
+- The primary struct (`Vault`) is the single entry point — callers need just one import to get started
+- Sub-packages define the rich domain types (`people.Person`, `daily.Note`) — each type lives with the logic that owns it
+- No global state means the library is safe for concurrent use, multiple instances, and testing
+- Stateless method calls (reload fresh each time) keep the struct simple — no cache invalidation logic needed
+- Type inference (`:=`) means callers rarely need to explicitly import sub-packages for variable declarations
+
+**When to use a global instance instead:** Only for CLI-only tools (like `pflag` itself) where there is truly only ever one instance and ease of use for end-users outweighs library correctness.
+
 ## Concurrency Patterns
 
-**Anti-Pattern:** Heavy, static Worker Pools. Go's scheduler is incredibly efficient; you don't need to manually manage pools of workers like OS threads in other languages.
+**Anti-Pattern:** Heavy, static Worker Pools.Go's scheduler is incredibly efficient; you don't need to manually manage pools of workers like OS threads in other languages.
 
 ### 1. Share Memory by Communicating
 
