@@ -1,0 +1,20 @@
+{
+  "name": "go-skills",
+  "interface": {
+    "displayName": "Go Skills"
+  },
+  "plugins": [
+    {
+      "name": "go-skills",
+      "source": {
+        "source": "local",
+        "path": "./"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}

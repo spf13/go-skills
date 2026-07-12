@@ -1,0 +1,44 @@
+{
+  "name": "go-skills",
+  "version": "1.0.0",
+  "description": "Authoritative Go skills written by spf13, covering idiomatic Go, CLI architecture, spec review, release engineering, desktop apps, and file operations.",
+  "author": {
+    "name": "Steve Francia",
+    "email": "steve.francia@gmail.com",
+    "url": "https://github.com/spf13"
+  },
+  "homepage": "https://github.com/spf13/go-skills",
+  "repository": "https://github.com/spf13/go-skills",
+  "license": "MIT",
+  "keywords": [
+    "go",
+    "golang",
+    "cobra",
+    "viper",
+    "wails",
+    "release-engineering"
+  ],
+  "skills": [
+    "./go",
+    "./cobra-viper",
+    "./go-spec-reviewer",
+    "./go-release",
+    "./wails",
+    "./fileflow-pathologize"
+  ],
+  "interface": {
+    "displayName": "Go Skills",
+    "shortDescription": "Idiomatic Go guidance from spf13",
+    "longDescription": "Six skills for idiomatic Go, Cobra and Viper CLIs, specification review, releases, Wails apps, and safe file operations.",
+    "developerName": "Steve Francia",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Guidance"
+    ],
+    "defaultPrompt": [
+      "Use Go Skills to review this Go code.",
+      "Use Go Skills to design this Cobra CLI.",
+      "Use Go Skills to review this Go specification."
+    ]
+  }
+}

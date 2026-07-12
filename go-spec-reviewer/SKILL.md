@@ -16,9 +16,9 @@ Verify that a Go design document is complete, consistent, and idiomatic **before
 
 ## How to Run the Review
 
-**If a subagent/Task tool is available:** dispatch a general-purpose subagent with the review instructions below (description: "Review Go spec document"), passing the spec file path.
+**If subagents are available and the governing instructions permit delegation:** dispatch a general-purpose subagent with the review instructions below (description: "Review Go spec document"), passing the spec file path.
 
-**If not (Claude.ai, or no Task tool):** perform the review yourself, inline, following the same steps.
+**Otherwise:** perform the review yourself, inline, following the same steps.
 
 Either way, the review procedure is identical:
 
@@ -36,7 +36,7 @@ Think like spf13: if this is a CLI, does it follow Cobra/Viper conventions prope
 
 ### Step 0 — Load the Standards
 
-If the `go` and `cobra-viper` skills are installed (check `/mnt/skills/user/go/SKILL.md` and `/mnt/skills/user/cobra-viper/SKILL.md`), read them first. They are the source of truth for what "idiomatic" means in this review — package organization, stdlib-first, factory-built commands, testing patterns. Do not re-derive standards that conflict with them.
+If the `go` and `cobra-viper` skills are available in the current environment, load them through the host's standard skill mechanism before reviewing. Their names may include a host-added plugin namespace. Do not assume fixed installation paths. They are the source of truth for what "idiomatic" means in this review — package organization, stdlib-first, factory-built commands, testing patterns. Do not re-derive standards that conflict with them.
 
 ### Step 1 — Understand the Codebase Context
 

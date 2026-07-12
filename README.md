@@ -55,7 +55,7 @@ Safe cross-filesystem file operations using `spf13/fileflow` (move, copy, rename
 
 ### Claude Code
 
-```
+```text
 /plugin marketplace add spf13/go-skills
 /plugin install go@go-skills
 /plugin install cobra-viper@go-skills
@@ -64,6 +64,17 @@ Safe cross-filesystem file operations using `spf13/fileflow` (move, copy, rename
 /plugin install wails@go-skills
 /plugin install fileflow-pathologize@go-skills
 ```
+
+### Codex
+
+```bash
+codex plugin marketplace add spf13/go-skills
+codex plugin add go-skills@go-skills
+```
+
+Start a new Codex thread after installation. The bundle provides `$go-skills:go`, `$go-skills:cobra-viper`, `$go-skills:go-spec-reviewer`, `$go-skills:go-release`, `$go-skills:wails`, and `$go-skills:fileflow-pathologize`.
+
+Codex caches plugins by version. When changing any bundled skill, also bump `version` in [`.codex-plugin/plugin.json`](./.codex-plugin/plugin.json) so installed copies can be updated.
 
 ### Other AI Agents (Copilot, Cursor, etc.)
 
