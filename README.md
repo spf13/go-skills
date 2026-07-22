@@ -65,6 +65,35 @@ Safe cross-filesystem file operations using `spf13/fileflow` (move, copy, rename
 /plugin install fileflow-pathologize@go-skills
 ```
 
+### CodeBuddy (腾讯云代码助手)
+
+This repository ships a project-local CodeBuddy skill index at `.codebuddy/skills/` that symlinks the six root skills, so any project opened at this repo's root picks them up automatically. No extra install step is required for the in-repo case.
+
+To install the skills **user-wide** (so they apply to every CodeBuddy project), symlink the same six directories into your CodeBuddy user skills path:
+
+```bash
+# macOS / Linux
+mkdir -p "$HOME/.codebuddy/skills"
+ln -s "$PWD/go"                         "$HOME/.codebuddy/skills/go"
+ln -s "$PWD/cobra-viper"                "$HOME/.codebuddy/skills/cobra-viper"
+ln -s "$PWD/go-spec-reviewer"           "$HOME/.codebuddy/skills/go-spec-reviewer"
+ln -s "$PWD/go-release"                 "$HOME/.codebuddy/skills/go-release"
+ln -s "$PWD/wails"                      "$HOME/.codebuddy/skills/wails"
+ln -s "$PWD/fileflow-pathologize"       "$HOME/.codebuddy/skills/fileflow-pathologize"
+```
+
+```powershell
+# Windows — directory junction
+New-Item -ItemType Junction -Path "$env:USERPROFILE\.codebuddy\skills\go"                  -Target "$PWD\go"
+New-Item -ItemType Junction -Path "$env:USERPROFILE\.codebuddy\skills\cobra-viper"         -Target "$PWD\cobra-viper"
+New-Item -ItemType Junction -Path "$env:USERPROFILE\.codebuddy\skills\go-spec-reviewer"    -Target "$PWD\go-spec-reviewer"
+New-Item -ItemType Junction -Path "$env:USERPROFILE\.codebuddy\skills\go-release"          -Target "$PWD\go-release"
+New-Item -ItemType Junction -Path "$env:USERPROFILE\.codebuddy\skills\wails"               -Target "$PWD\wails"
+New-Item -ItemType Junction -Path "$env:USERPROFILE\.codebuddy\skills\fileflow-pathologize" -Target "$PWD\fileflow-pathologize"
+```
+
+After linking, restart CodeBuddy. The skills will appear in Settings → Skills and be invoked automatically when the matching `description` triggers fire.
+
 ### Other AI Agents (Copilot, Cursor, etc.)
 
 Place the skills where your AI coding agent can find them:
