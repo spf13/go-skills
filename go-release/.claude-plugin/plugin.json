@@ -3,7 +3,7 @@
   "name": "go-release",
   "displayName": "Go Release Engineering",
   "description": "Release engineering for Go modules and applications — semantic versioning, breaking-change detection, deprecation conventions, go.mod hygiene, and binary distribution with GoReleaser.",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": {
     "name": "Steve Francia",
     "email": "steve.francia@gmail.com"

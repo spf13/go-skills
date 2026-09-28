@@ -3,7 +3,7 @@
   "name": "go-spec-reviewer",
   "displayName": "Go Spec Reviewer",
   "description": "Review Go design documents before implementation begins — catches over-engineering, missing error paths, interface misuse, and Cobra/Viper convention violations while a plan is still cheap to change.",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": {
     "name": "Steve Francia",
     "email": "steve.francia@gmail.com"
