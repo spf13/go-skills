@@ -121,6 +121,8 @@ Your core logic (the `engine` package) should have absolutely **zero** imports f
 
 ## Cobra Best Practices
 
+Flag parsing, context plumbing, and the command tree below do not change with the Go release — nothing in Go 1.26 or Go 1.27 alters how Cobra parses flags, how `cmd.Context()` flows into your code, or how commands are constructed and added. The version-gated guidance in this skill lives only in error inspection and config decoding, and is called out where it appears.
+
 ### 1. Use `RunE` for Native Error Handling
 
 Avoid `Run`. If a command fails, use `RunE` to return the error up the execution chain. This allows the root command to handle errors gracefully and consistently, rather than relying on scattered `log.Fatal` calls that bypass `defer` statements.
@@ -272,6 +274,16 @@ if err := v.Unmarshal(&cfg); err != nil {
 }
 ```
 
+A config struct that is also *marshaled* — a `config dump` command or a `--json` output mode — needs JSON tags on the same fields, and the zero-value options are not interchangeable. Use `omitzero` (Go 1.24) rather than `omitempty` for struct-typed fields, including `time.Time` and nested config structs: `omitempty` never treats a struct as empty, so an unset `time.Time` marshals as `"0001-01-01T00:00:00Z"`, while `omitzero` omits it:
+
+```go
+type Config struct {
+    Host     string        `mapstructure:"host"     json:"host"`
+    Started  time.Time     `mapstructure:"started"  json:"started,omitzero"` // omitempty would emit the zero time
+    Listen   ListenConfig  `mapstructure:"listen"   json:"listen,omitzero"`  // omitempty never omits a struct
+}
+```
+
 ### 3. The Binding Hierarchy
 
 Viper merges configuration sources in this order (highest → lowest priority):
@@ -333,14 +345,23 @@ func initConfig(v *viper.Viper, cmd *cobra.Command) error {
     v.AutomaticEnv()
 
     if err := v.ReadInConfig(); err != nil {
-        var notFound viper.ConfigFileNotFoundError
-        if !errors.As(err, &notFound) {
+        // Go 1.26+: generic, type-safe, and faster than errors.As.
+        if _, ok := errors.AsType[viper.ConfigFileNotFoundError](err); !ok {
             return fmt.Errorf("reading config: %w", err)
         }
         // Not found is fine — defaults, env, and flags still apply
     }
 
     return v.BindPFlags(cmd.Flags())
+}
+```
+
+`errors.AsType[T](err)` (Go 1.26 and above) returns the matched value and an `ok` bool, so it needs no predeclared target variable and cannot be misused by passing a non-pointer. Below Go 1.26, use the classic form with `errors.As`, which remains correct and is the version-floored fallback:
+
+```go
+var notFound viper.ConfigFileNotFoundError
+if !errors.As(err, &notFound) {
+    return fmt.Errorf("reading config: %w", err)
 }
 ```
 
@@ -359,6 +380,29 @@ db:
   port: 5432
   name: myapp
 ```
+
+### 6. JSON Config Files Are Decoded Strictly (Go 1.27)
+
+Since Go 1.27, `encoding/json` is backed by the `encoding/json/v2` implementation, and Viper decodes `.json` config files with `encoding/json`. The new defaults are stricter, and both of these are now errors where they previously slipped through:
+
+- Invalid UTF-8 inside a JSON string.
+- Duplicate names within the same object.
+
+The consequence for a CLI is concrete: **a config file that previously parsed can now fail**. `v.ReadInConfig()` returns the decode error, and because config loading runs in `PersistentPreRunE`, the command stops before `RunE` — the same file, unchanged, fails under a newer toolchain alone:
+
+```json
+{
+  "db": { "host": "localhost", "host": "db.internal" }
+}
+```
+
+That object has always been ambiguous — under the old decoder the last `host` silently won — and if that file is a user's `.myapp.json`, the upgrade turns a working command into one that exits with a config error on startup.
+
+Two escape hatches exist, both scoped to v1 semantics rather than to any part of your code: `encoding/json.Options` configures v1 behavior on top of the v2 implementation, and `GOEXPERIMENT=nojsonv2` restores the old implementation process-wide. The environment variable is a migration aid — it is expected to be removed in a future release — so prefer fixing the config file, or using `Options` deliberately, over depending on it.
+
+v1 *behavior* is otherwise preserved, but error message text may differ — never match on the text of a JSON decode error; match on its type.
+
+`v.Unmarshal` itself is unaffected by the switch: it maps fields with `mapstructure` tags, not `encoding/json`, so only the decode step changes.
 
 ## Version Handling
 
@@ -439,6 +483,7 @@ func TestServeCommand(t *testing.T) {
 
 - **Executing a subcommand variable directly in tests**: `serverCmd.Execute()` runs the whole tree from the root, not just that command. Build fresh trees with a factory and drive them through `SetArgs`.
 - **Env-only values missing after `Unmarshal`**: `AutomaticEnv` doesn't register keys. `SetDefault` or `BindEnv` every key in your config struct (see the gotcha above).
+- **Assuming a JSON config that once parsed still parses**: since Go 1.27 the decoder rejects invalid UTF-8 and duplicate object names, so a config file can start failing at `ReadInConfig` on a toolchain upgrade alone (see §6 above).
 - **Accessing Viper before config is loaded**: values are empty until your setup has run (`PersistentPreRunE` or `cobra.OnInitialize`). Don't read Viper in `init()` functions or `var` blocks.
 - **Forgetting `BindPFlags`**: flags are not automatically visible to Viper. Bind the command's flag set explicitly.
 - **Missing `SetEnvKeyReplacer`**: nested keys with dots (e.g., `serve.addr`) won't match `MYAPP_SERVE_ADDR` without a replacer.
