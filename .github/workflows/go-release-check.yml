@@ -1,0 +1,73 @@
+name: go-release-check
+
+# A shipped Go release is invisible to push/PR CI: nothing in a quiet repository
+# commit changes. This workflow is the mechanical reminder that a skill's
+# "current through Go X.Y" claim is now behind. See CONTRIBUTING.md
+# ("Go release currency").
+
+on:
+  schedule:
+    # 06:17 UTC on the first of every month.
+    - cron: "17 6 1 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  currency:
+    name: go release currency
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch the latest stable Go release
+        id: latest
+        run: |
+          version="$(curl -fsS 'https://go.dev/dl/?mode=json' | jq -r '[.[] | select(.stable == true)][0].version')"
+          if [ -z "$version" ] || [ "$version" = "null" ]; then
+            echo "could not determine the latest stable Go release" >&2
+            exit 1
+          fi
+          echo "latest stable Go release: $version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Check every skill's 'current through Go X.Y' claim
+        id: check
+        env:
+          GO_RELEASE_LATEST: ${{ steps.latest.outputs.version }}
+        run: |
+          set -o pipefail
+          python3 .github/scripts/check_go_release.py "$GO_RELEASE_LATEST" 2>&1 | tee drift.txt
+
+      - name: Open or update the standing drift issue
+        if: failure() && steps.check.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          LATEST: ${{ steps.latest.outputs.version }}
+        run: |
+          title="Go release drift"
+          body="$(printf '%s\n' \
+            "The scheduled Go release currency check failed." \
+            "" \
+            "Latest stable Go release: \`$LATEST\`" \
+            "" \
+            '```' \
+            "$(cat drift.txt)" \
+            '```' \
+            "" \
+            "Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}")"
+
+          # Deduplicate by fixed title prefix: a long-standing drift is commented
+          # on, not filed again every month.
+          existing="$(gh issue list --state open --limit 100 --json number,title \
+            --jq 'first(.[] | select(.title | startswith("Go release drift")) | .number) // empty')"
+
+          if [ -n "$existing" ]; then
+            echo "commenting on standing issue #$existing"
+            gh issue comment "$existing" --body "$body"
+          else
+            echo "opening a new drift issue"
+            gh issue create --title "$title: latest stable Go is $LATEST" --body "$body"
+          fi
