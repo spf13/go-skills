@@ -305,6 +305,21 @@ wg.Wait()
 
 Every `go func()` must have a clear exit condition, usually governed by a `context.Context` or a closed channel.
 
+Since Go 1.27 that rule is measurable rather than aspirational: the `goroutineleak` profile is generally available in `runtime/pprof` and as the `/debug/pprof/goroutineleak` endpoint.
+
+```go
+import (
+    "os"
+    "runtime/pprof"
+)
+
+if p := pprof.Lookup("goroutineleak"); p != nil {
+    _ = p.WriteTo(os.Stderr, 1)
+}
+```
+
+A leaked goroutine is one blocked on a concurrency primitive (channel, `sync.Mutex`, `sync.Cond`, and so on) that cannot possibly become unblocked — the runtime proves it via reachability from the garbage collector. Because the technique is reachability-based, it cannot see leaks caused by blocking on primitives reachable through global variables or through the local variables of runnable goroutines, so a clean profile is evidence, not proof. In Go 1.26 the profile was experimental behind `GOEXPERIMENT=goroutineleakprofile`; that experiment was deleted in Go 1.27.
+
 ## Configuration and Struct Design
 
 ### Functional Options for Complex Initialization
@@ -335,6 +350,26 @@ func NewServer(addr string, opts ...Option) *Server {
 }
 ```
 
+### Optional Pointer Fields with `new(expr)` (Go 1.26)
+
+A pointer field is how Go distinguishes "absent" from "present but zero". Since Go 1.26, `new` takes an expression, so the temporary variable disappears:
+
+```go
+type Person struct {
+    Name string
+    Age  *int // nil means "not recorded"; a pointer separates absent from 0
+}
+
+// Old
+age := yearsSince(born)
+p := Person{Name: name, Age: &age}
+
+// New (Go 1.26) — the canonical use of new(expr)
+p := Person{Name: name, Age: new(yearsSince(born))}
+```
+
+Below Go 1.26, keep the `v := expr; &v` form.
+
 ## Error Handling
 
 ### 1. Errors are Values
@@ -352,6 +387,25 @@ if err != nil {
     return fmt.Errorf("loading config file %s: %w", path, err)
 }
 ```
+
+### 3. `errors.AsType[T]` over `errors.As` (Go 1.26)
+
+For modules whose floor is Go 1.26 or later, use `errors.AsType[T](err)` — generic, type-safe, and faster, because it needs no pre-declared target and no pointer-to-pointer argument:
+
+```go
+// Classic errors.As
+var pathErr *fs.PathError
+if errors.As(err, &pathErr) {
+    // use pathErr
+}
+
+// Go 1.26 — the value falls straight out of the call
+if pathErr, ok := errors.AsType[*fs.PathError](err); ok {
+    // use pathErr
+}
+```
+
+Below Go 1.26, `errors.As` with `&target` remains the required form; it is correct and supported on every version.
 
 ## Testing Patterns
 
@@ -427,16 +481,44 @@ func TestFetch(t *testing.T) {
     ...
 }
 
-// Benchmarks: b.Loop() replaces the classic b.N loop — more accurate,
-// prevents the compiler from optimizing the benchmarked call away.
+// t.Chdir(dir) changes working directory for the test and restores it after.
+```
+
+**Benchmarks: always write `b.Loop()`.** `B.Loop` arrived in Go 1.24 and is the mandated benchmark form; since Go 1.26 it no longer inhibits inlining of the loop body, so migrating off `b.N` is unconditionally safe:
+
+```go
 func BenchmarkParse(b *testing.B) {
     for b.Loop() {
         Parse(input)
     }
 }
-
-// t.Chdir(dir) changes working directory for the test and restores it after.
 ```
+
+Arguments, results, and variables assigned inside a `for b.Loop()` body are still kept alive, so the compiler cannot optimize the benchmarked call away — but the loop condition must be written exactly as `b.Loop()`. Never emit the `for i := 0; i < b.N; i++` form, and never mix the two.
+
+**Test output files go in `t.ArtifactDir()` (Go 1.26).** `T.ArtifactDir`, `B.ArtifactDir`, and `F.ArtifactDir` return a per-test directory for files a test produces. With `go test -artifacts` that directory sits under `-outputdir` (or the current directory); without the flag it is a temporary directory removed when the test finishes, so writing there never pollutes the tree.
+
+```go
+func TestRender(t *testing.T) {
+    out := filepath.Join(t.ArtifactDir(), "render.png")
+    if err := render(out); err != nil {
+        t.Fatal(err)
+    }
+}
+```
+
+Do not invent your own `os.MkdirTemp` cleanup for test output, and do not write artifacts next to the fixtures in `testdata/`.
+
+**Deterministic crypto randomness: `cryptotest.SetGlobalRandom` (Go 1.26).** It seeds a global, deterministic cryptographic randomness source for the duration of the test, affecting `crypto/rand` and the implicit randomness inside the `crypto/...` packages:
+
+```go
+func TestKeyGeneration(t *testing.T) {
+    cryptotest.SetGlobalRandom(t, 42) // fixed seed for this test
+    ...
+}
+```
+
+It changes process-wide state, so it cannot be used in parallel tests or tests with parallel ancestors. The `GODEBUG=cryptocustomrand=1` setting temporarily restores the old behavior.
 
 ### 8. `testing/synctest` for Concurrent Code (Go 1.25)
 
@@ -456,6 +538,28 @@ func TestTimeout(t *testing.T) {
 ```
 
 Never write `time.Sleep(100 * time.Millisecond)` to "wait for a goroutine" in a test. Use synctest, channels, or explicit synchronization.
+
+Since Go 1.27, `synctest.Sleep` combines `time.Sleep` with `synctest.Wait` — it blocks until the bubble's fake clock has advanced by the duration *and* every other goroutine in the bubble is durably blocked:
+
+```go
+synctest.Test(t, func(t *testing.T) {
+    go worker(t) // system under test
+    synctest.Sleep(time.Second) // advances the clock, then waits for it to settle
+    // assertions see a quiescent system
+})
+```
+
+Prefer it to a bare `time.Sleep` inside a bubble: when the test and the code under test sleep for the same duration, plain `time.Sleep` makes the wakeup order unpredictable.
+
+Also Go 1.27: `httptest.NewTestServer(t, handler)` runs an `http.Server` on an in-memory fake network with no ports and no real socket, which makes HTTP tests usable inside a synctest bubble:
+
+```go
+srv := httptest.NewTestServer(t, mux)
+defer srv.Close()
+resp, err := srv.Client().Get("http://example.com/") // routed to srv, address ignored
+```
+
+The client returned by `srv.Client()` directs HTTP and HTTPS requests to that server regardless of destination host, so tests need no `srv.URL` base. Below Go 1.27, `httptest.NewServer` binds a real localhost port and cannot be used inside a synctest bubble.
 
 ## Generics (Go 1.18+)
 
@@ -619,6 +723,15 @@ rand.IntN(100)            // was rand.Intn — note the capital N
 rand.N(10 * time.Second)  // generic: random value in [0, n) for any integer type
 ```
 
+The generic `N` is also a method since Go 1.27, so a seeded source no longer needs the package-level generic:
+
+```go
+r := rand.New(rand.NewPCG(seed1, seed2))
+n := r.N(100) // Go 1.27 — in [0, 100), type inferred as int
+```
+
+Below Go 1.27, use the package-level `rand.N(100)` for the default source, or `r.IntN(100)` where an `int` will do.
+
 ### `encoding/json`: `omitzero` (Go 1.24)
 
 `omitzero` omits any zero value — including `time.Time{}` and zero structs, which `omitempty` never handled correctly:
@@ -629,6 +742,78 @@ type Event struct {
     StartedAt time.Time `json:"started_at,omitzero"` // omitempty would emit "0001-01-01T..."
 }
 ```
+
+At Go 1.27, `encoding/json` is backed by the `encoding/json/v2` implementation, whose defaults are stricter — it rejects invalid UTF-8 in JSON strings and duplicate names within an object; v1 marshaling and unmarshaling behavior is preserved but error message text may differ. The `cobra-viper` skill covers the config-decoding consequences.
+
+### `uuid` package (Go 1.27)
+
+The standard library now generates and parses UUIDs. For a module that can require Go 1.27, this replaces the reflexive `github.com/google/uuid` recommendation:
+
+```go
+import "uuid"
+
+u := uuid.New()      // algorithm suitable for most purposes
+v7 := uuid.NewV7()   // time-ordered; good for database keys
+id, err := uuid.Parse(s)
+```
+
+`MustParse` panics on bad input; use `Parse` anywhere user input reaches it. Random components come from a cryptographically secure generator. Below Go 1.27, keep `github.com/google/uuid`.
+
+### `strings.CutLast` / `bytes.CutLast` (Go 1.27)
+
+Cut around the *last* occurrence of a separator, replacing the `LastIndex` + slicing idiom:
+
+```go
+// Old
+i := strings.LastIndex(path, "/")
+if i < 0 {
+    return path, "", false
+}
+return path[:i], path[i+1:], true
+
+// New (Go 1.27)
+before, after, found := strings.CutLast(path, "/")
+```
+
+Both return slices of the original (no copy) and report `found`. Below Go 1.27, the `LastIndex` form is the fallback.
+
+### `log/slog.NewMultiHandler` (Go 1.26)
+
+Fan a record out to several handlers — for example text to stderr and JSON to a file — without writing a logging wrapper:
+
+```go
+handler := slog.NewMultiHandler(
+    slog.NewTextHandler(os.Stderr, nil),
+    slog.NewJSONHandler(file, nil),
+)
+logger := slog.New(handler)
+```
+
+`MultiHandler.Enabled` reports true if *any* of the handlers is enabled. Below Go 1.26, write a small `slog.Handler` that forwards to a slice of handlers.
+
+### `net/url` Clones (Go 1.27)
+
+`URL.Clone` and `Values.Clone` return deep copies. Use them before mutating a URL or query map you did not construct — a plain struct copy still shares the userinfo pointer and the query map:
+
+```go
+u2 := u.Clone()      // deep copy of all URL fields
+q2 := q.Clone()      // deep copy of Values
+q2.Set("page", "2")  // q is untouched
+```
+
+Below Go 1.27, copy manually (and remember `url.Userinfo` and the `Values` map each need their own copy).
+
+### `reflect` Iterators (Go 1.26)
+
+`Type.Fields`, `Type.Methods`, `Type.Ins`, `Type.Outs`, `Value.Fields`, and `Value.Methods` return iterators, so they compose with the range-over-func style used elsewhere in this skill:
+
+```go
+for field := range reflect.TypeOf(cfg).Fields() {
+    fmt.Println(field.Name, field.Type)
+}
+```
+
+Below Go 1.26, index with `NumField()`/`Field(i)`.
 
 ## Concurrency: Modern Patterns
 
@@ -663,6 +848,24 @@ When you need to detach a context's cancellation but preserve its values (e.g., 
 bgCtx := context.WithoutCancel(requestCtx)
 go doBackgroundWork(bgCtx)
 ```
+
+### `time` Channels Are Always Unbuffered (Go 1.27)
+
+Channels created by package `time` (timers and tickers) are now always unbuffered (synchronous), irrespective of GODEBUG settings. Go 1.23 made capacity-0 timer channels the behavior for modules declaring `go 1.23` or later, with `asynctimerchan=1` as the opt-out; Go 1.27 removed that setting permanently, so there is no longer a way back.
+
+Consequences when consuming timers and tickers:
+
+- `Stop` and `Reset` guarantee that no value prepared before the call is sent or received after it. The buffered-channel dance around `Reset` is obsolete, and a timer's fired value is never silently discarded.
+- `len` and `cap` of a timer or ticker channel are `0`, so never poll the length to decide whether a receive will succeed — use a non-blocking receive with `select` and `default`.
+- A ticker adjusts its interval or drops ticks to make up for a slow receiver, so consume `Ticker.C` promptly or `Stop` the ticker.
+
+### Runtime Changes with No Code Impact (Go 1.26 / 1.27)
+
+Behavior to know about so you neither chase it nor "fix" it:
+
+- **Green Tea GC (Go 1.26)** — enabled by default; 10–40% less GC overhead. Opt out with `GOEXPERIMENT=nogreenteagc` (expected to be removed in Go 1.27).
+- **Heap base address randomization (Go 1.26)** — on 64-bit platforms allocated objects no longer sit at predictable addresses. Opt out with `GOEXPERIMENT=norandomizedheapbase64`.
+- **Size-specialized small allocations (Go 1.27)** — allocations below 80 bytes are up to 30% cheaper, at the cost of roughly 60 KB of binary size. Opt out with `GOEXPERIMENT=nosizespecializedmalloc` (expected to be removed in Go 1.28).
 
 ## HTTP: Use the Improved stdlib Router (Go 1.22)
 
@@ -765,6 +968,81 @@ for i := 0; i < 10; i++ { ... }
 for i := range 10 { ... }
 ```
 
+### `new(expr)` (Go 1.26)
+
+`new` accepts an expression and returns a pointer to a new variable holding that value, replacing the `v := expr; &v` dance:
+
+```go
+// Old
+v := yearsSince(born)
+p := &v
+
+// New (Go 1.26)
+p := new(yearsSince(born))
+```
+
+The canonical case is an optional pointer struct field — see Configuration and Struct Design above.
+
+### Generic Methods (Go 1.27)
+
+A method declaration may declare its own type parameters, so a generic helper can be scoped to a type instead of the whole package. `math/rand/v2` gains the method form `(*Rand) N[Int intType](Int) Int` alongside the existing package-level generic `N`:
+
+```go
+import "math/rand/v2"
+
+r := rand.New(rand.NewPCG(seed1, seed2))
+n := r.N(100) // method form, Go 1.27
+```
+
+Two hard limits:
+
+- A method of an interface may not declare type parameters.
+- An interface method cannot be implemented by a generic method.
+
+Below Go 1.27, hoist the helper to a package-level generic function.
+
+### Self-Referential Type-Parameter Constraints (Go 1.26)
+
+A generic type may now refer to itself in its own type-parameter list:
+
+```go
+type Adder[A Adder[A]] interface {
+    Add(A) A
+}
+```
+
+Before Go 1.26 this was rejected by the compiler.
+
+### Struct Literal Keys: Any Field Selector (Go 1.27)
+
+A key in a struct literal may be any valid field selector for the struct type, not just a top-level field name — so a promoted field can be named directly:
+
+```go
+type Base struct{ ID int }
+
+type User struct {
+    Base
+    Name string
+}
+
+u := User{ID: 1, Name: "steve"} // Go 1.27 — Base.ID named directly
+```
+
+Below Go 1.27, initialize the embedded value explicitly: `User{Base: Base{ID: 1}, Name: "steve"}`.
+
+### Generalized Function Type Inference (Go 1.27)
+
+Function type inference applies in every context where a generic function is assigned to, or converted to, a value of a matching function type:
+
+```go
+type Less func(a, b string) int
+
+// Go 1.26 and earlier: "cannot use generic function cmp.Compare without instantiation"
+var less Less = Less(cmp.Compare) // Go 1.27 infers T = string
+```
+
+Below Go 1.27, instantiate explicitly: `cmp.Compare[string]`.
+
 ### Build Constraints
 
 ```go
@@ -826,6 +1104,14 @@ logger.Error("request failed", "err", err)  // needs attention
 - **Never** use a package-level `log` or `slog` global beyond `main`. Pass `*slog.Logger` as a dependency.
 - **Never** log and return an error. Log at the boundary, return the error through the call stack.
 - Use `slog.Default()` as the fallback only in `main` or in libraries when no logger is provided.
+
+## Experimental Packages: Not for Production
+
+These APIs ship behind `GOEXPERIMENT` build-time flags, and their APIs are explicitly **not stable**. Prototype with them, or use them to prepare for a future release — never put them in production code or in a library others depend on.
+
+- **`simd` (Go 1.27)** — portable, vector-size-agnostic SIMD behind `GOEXPERIMENT=simd`, available on all architectures. Write vector code once and let the compiler map it to the hardware width.
+- **`simd/archsimd` (Go 1.26; extended in Go 1.27)** — architecture-specific SIMD behind `GOEXPERIMENT=simd`. Introduced for amd64 in Go 1.26; Go 1.27 extends it to arm64 Neon and WebAssembly 128-bit SIMD. It is intentionally non-portable.
+- **`runtime/secret` (Go 1.26)** — behind `GOEXPERIMENT=runtimesecret`, amd64 and arm64 Linux only. Goroutines created while in secret mode also execute in secret mode as of Go 1.27.
 
 ## Debugging: The Go Toolchain Is Not the Problem
 
