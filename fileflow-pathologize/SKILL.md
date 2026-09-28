@@ -179,7 +179,7 @@ The 100-candidate limit is internal and not configurable.
   no-replace logic. A failed copy does not expose a partial destination or
   leave its temporary file behind.
 
-### Errors (`errors.Is` for sentinels, `errors.As` for structured errors)
+### Errors (`errors.Is` for sentinels, `errors.As`/`errors.AsType` for structured errors)
 
 ```go
 fileflow.ErrSameFile             // src and dst are the same file
@@ -193,6 +193,26 @@ case-insensitive filesystems—not just identical strings. Treat it as a no-op
 success only when that matches the caller's semantics. A removal error may
 return the final destination together with `ErrFailedRemovingOriginal`, because
 the content arrived safely but the source could not be deleted.
+
+The sentinels are `errors.Is` targets; the structured errors are `errors.As`
+targets. Extract one with the target-pointer form:
+
+```go
+var moveErr *fileflow.ErrFailedMovingFile
+if errors.As(err, &moveErr) {
+    log.Printf("move %s -> %s failed: %v", moveErr.Src, moveErr.Dst, moveErr.Err)
+}
+```
+
+On Go 1.26 or later, `errors.AsType[T]` is type-safe and faster and removes the
+declared-target dance; below that floor keep the `errors.As` form above.
+`errors.AsType` is generic:
+
+```go
+if moveErr, ok := errors.AsType[*fileflow.ErrFailedMovingFile](err); ok {
+    log.Printf("move %s -> %s failed: %v", moveErr.Src, moveErr.Dst, moveErr.Err)
+}
+```
 
 ## pathologize
 
@@ -297,6 +317,16 @@ by design.
 | Using `CleanPath` on untrusted input | `CleanPath` makes paths VALID, not SAFE — use `Join` |
 | Sanitizing the trusted root too | `Join` takes root verbatim; only parts are untrusted |
 | Manual `os.MkdirAll` before an operation | `Move`/`Rename`/`Copy` create parents by default |
+
+## Path splitting and extension parsing
+
+Nothing in this skill splits a path with `LastIndex`, so the Go 1.27
+`strings.CutLast` and `bytes.CutLast` helpers replace no example here. Where you
+do need a file's extension, keep `filepath.Ext` (or `path.Ext` for
+slash-separated paths): `CutLast` slices around the last occurrence of a
+separator and is not an extension parser. The rest of this skill — `Join`,
+`Clean`, `CleanPath`, `Flow`, and conflict-suffix handling — is unaffected by
+Go 1.26 and 1.27.
 
 ## Installation
 
