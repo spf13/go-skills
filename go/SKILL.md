@@ -3,7 +3,7 @@ name: go
 description: >
   Expert Go programming skill authored by spf13 (former Go team lead, author of Cobra, Viper, Hugo, Afero).
   Covers idiomatic Go — package design, error handling, interfaces, concurrency, testing, and
-  project layout, current through Go 1.25. Use whenever Go code is written, reviewed, debugged, or
+  project layout, current through Go 1.27. Use whenever Go code is written, reviewed, debugged, or
   refactored — any .go file, go.mod, CLI tool, or web service, and whenever the user mentions
   Go or golang, even if they don't ask for "idiomatic" code.
 ---
@@ -20,6 +20,86 @@ Idiomatic Go patterns and best practices for building robust, efficient, and mai
 - Designing Go packages, modules, or APIs
 - Choosing between stdlib and third-party libraries
 - Any question about Go project structure, error handling, concurrency, or testing
+
+## Version Gating: Check the Module's Floor First
+
+Every version-gated feature is a floor: the module's packages must compile on the release that introduced it. Before recommending such a feature, establish the floor and recommend only what it supports.
+
+1. Read the `go` directive in the module's `go.mod`. That version is the floor for the module's own packages — a module declaring `go 1.21` must still compile on Go 1.21, whatever toolchain you happen to be running.
+2. Check the file's build constraints. A file behind `//go:build go1.24` may use Go 1.24 features even when the module's `go` directive is older.
+3. If the floor is unknown, read `go.mod` or ask. Never guess, and never assume the reader is on the latest release.
+
+The inverse error is just as real: do not flag an idiom as unavailable in a module whose floor already permits it, and never raise a module's `go` directive merely to reach a convenience helper — a `go` directive is a floor imposed on every dependent of the module.
+
+### The Version → Feature Index
+
+One line per feature, so availability is looked up here rather than guessed.
+
+| Since | Feature |
+| --- | --- |
+| 1.17 | `//go:build` constraints, required in place of `// +build` lines |
+| 1.18 | Type parameters (generics) |
+| 1.18 | `any` as an alias for `interface{}` |
+| 1.19 | `sync/atomic` typed values (`atomic.Int64`, `atomic.Pointer[T]`) |
+| 1.20 | `errors.Join` |
+| 1.21 | `slices` package |
+| 1.21 | `maps` package |
+| 1.21 | `cmp` package (`cmp.Compare`) |
+| 1.21 | `min`, `max`, `clear` builtins |
+| 1.21 | `log/slog` |
+| 1.21 | `context.WithoutCancel` |
+| 1.22 | `math/rand/v2` |
+| 1.22 | `net/http` ServeMux method and wildcard patterns |
+| 1.22 | `for i := range n` (range over integer) |
+| 1.22 | Per-iteration loop variables |
+| 1.22 | `slices.Concat` |
+| 1.22 | `cmp.Or` |
+| 1.23 | Range-over-func iterators (`iter.Seq`, `iter.Seq2`) |
+| 1.23 | `maps.Keys` / `maps.Values` as iterators |
+| 1.23 | `slices.Collect` / `slices.Values` / `slices.Sorted` |
+| 1.24 | `encoding/json` `omitzero` |
+| 1.24 | `tool` directive in `go.mod` |
+| 1.24 | Generic type aliases |
+| 1.24 | `t.Context()`, `b.Loop()`, `t.Chdir()` |
+| 1.25 | `testing/synctest` (`synctest.Test`) |
+| 1.25 | `sync.WaitGroup.Go` |
+| 1.26 | `new(expr)` |
+| 1.26 | Self-referential type-parameter constraints |
+| 1.26 | `errors.AsType[T]` |
+| 1.26 | `log/slog.NewMultiHandler` |
+| 1.26 | `reflect` iterators (`Type.Fields`, `Type.Methods`, `Type.Ins`, `Type.Outs`, `Value.Fields`, `Value.Methods`) |
+| 1.26 | `t.ArtifactDir()` / `b.ArtifactDir()` / `f.ArtifactDir()` with `go test -artifacts` |
+| 1.26 | `B.Loop` no longer inhibits inlining |
+| 1.26 | `testing/cryptotest.SetGlobalRandom` |
+| 1.26 | Green Tea GC on by default |
+| 1.26 | Heap base address randomization on 64-bit platforms |
+| 1.26 | `runtime/pprof` `goroutineleak` profile (experiment: `GOEXPERIMENT=goroutineleakprofile`) |
+| 1.26 | `simd/archsimd` (experiment: `GOEXPERIMENT=simd`) |
+| 1.26 | `runtime/secret` (experiment: `GOEXPERIMENT=runtimesecret`) |
+| 1.27 | Generic methods |
+| 1.27 | Struct literal keys may be any field selector |
+| 1.27 | Generalized function type inference |
+| 1.27 | `stdversion` vet check on by default in `go test` |
+| 1.27 | `uuid` package |
+| 1.27 | `strings.CutLast` / `bytes.CutLast` |
+| 1.27 | `net/url` `URL.Clone` / `Values.Clone` |
+| 1.27 | `math/rand/v2` `(*Rand).N` |
+| 1.27 | `testing/synctest.Sleep` |
+| 1.27 | `net/http/httptest.NewTestServer` |
+| 1.27 | `runtime/pprof` `goroutineleak` profile generally available |
+| 1.27 | `time` timers and tickers always unbuffered; `asynctimerchan` removed |
+| 1.27 | Size-specialized small allocations (below 80 bytes) |
+| 1.27 | `encoding/json` backed by the `encoding/json/v2` implementation |
+| 1.27 | `simd` (experiment: `GOEXPERIMENT=simd`) |
+| 1.27 | `simd/archsimd` on arm64 and WebAssembly (experiment: `GOEXPERIMENT=simd`) |
+
+### Enforcement: `stdversion`
+
+Since Go 1.27, `go test` runs the `stdversion` vet check by default. It reports the use of standard library symbols that are too new for the Go version in force in the referring file, as determined by the `go` directive in `go.mod` and the build tags on the file.
+
+- Run `go vet ./...` (or `go test ./...`) before calling version-gated code correct.
+- Treat a `stdversion` finding as a version-gating error, not a false positive: either the code is too new for the module's floor, or the floor is deliberately being raised and every dependent of the module must be told.
+- It covers standard library symbols only. Language features (`new(expr)`, generic methods) and behavior changes that introduce no new symbol are still yours to gate by hand.
 
 ## Core Principles
 
@@ -483,7 +563,7 @@ keys := slices.Sorted(maps.Keys(m))
 import "cmp"
 
 cmp.Compare(a, b)    // returns -1, 0, or 1; works on any cmp.Ordered type
-cmp.Or(a, b, c)      // returns first non-zero value — replaces ternary workarounds
+cmp.Or(a, b, c)      // returns first non-zero value — replaces ternary workarounds (Go 1.22)
 min(a, b)            // built-in since Go 1.21
 max(a, b)            // built-in since Go 1.21
 ```
