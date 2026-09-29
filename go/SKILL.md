@@ -148,6 +148,8 @@ Handle errors and edge cases immediately and return. Do not use `else` blocks fo
 
 Start flat. If you are building a microservice or a simple tool, put everything in the root directory (or alongside your `main.go`). Only create a new package when you truly need a new namespace to clarify the code, or when you need to decouple a strictly independent domain.
 
+One binary means `main.go` at the module root. Reach for `cmd/<name>/` only when the module ships more than one binary — one directory per binary, nothing else in there.
+
 ### 2. The Proper Use of `internal/`
 
 The `internal/` directory has a specific compiler enforcement: it prevents other modules from importing the code inside it.
@@ -171,7 +173,7 @@ myproject/
 
 When an application has genuinely distinct, independently-testable domains, give each its own top-level package. The rule is still **one level deep** — no `internal/` nesting, no Clean Architecture layers. Each package owns one concern. `main.go` wires them together.
 
-The signal to create a package: can this domain be described in one sentence, and does it have no knowledge of the other packages? If yes, it earns its own package.
+The signal to create a package: can this domain be described in one sentence, and can it do its job without knowing the packages that call it? If yes, it earns its own package.
 
 ```
 // Idiomatic: A web service with distinct domain packages
@@ -192,12 +194,36 @@ myservice/
 
 **Rules for domain packages:**
 - Each package has **one clear purpose** — name it after what it does, not what layer it is (`jobs/`, not `service/`)
-- Packages do not import each other sideways — cycles are a sign of wrong boundaries; `main` is the wiring point
+- Imports point one way: `web` may import `jobs`, and `jobs` may import `db`, but nothing below imports anything above it, and nothing imports `main`. Sibling imports are fine — cycles and upward imports are the smell. `main` is the wiring point, not a library
 - Related sub-concerns that always travel together stay in one package (e.g. job creation + worker handler both live in `jobs/` because they share the job lifecycle domain)
-- HTTP handlers and the templates they render belong together in `web/` — they are tightly coupled by design
+- HTTP handlers and the templates they render belong together in `web/` — they are tightly coupled by design, and `//go:embed` can only read files inside its own package directory, so templates and static assets have to live there
 - Do not create `utils/`, `helpers/`, or `common/` packages — these are symptoms of unclear ownership
 
 **Anti-pattern to reject:** Clean Architecture / DDD layers (`service/`, `repository/`, `controller/`, `domain/`). These layer-named packages cause circular imports, force interface proliferation, and add zero clarity in Go. Domain-named packages (`auth/`, `billing/`, `jobs/`) are the correct middle ground between "too flat" and "over-engineered."
+
+### 4. When Flat Stops Working
+
+Flat is a default, not a vow. Split when the code shows you the seam is already there:
+
+- `main.go` has grown past a few hundred lines, or one file now holds several unrelated concerns.
+- A struct carries state for two unrelated concerns, or one mutex guards two of them.
+- Testing one concern means building the whole program first — the server, the config, the database handle — before the test can run.
+- A file's imports are disjoint: half of them exist for one half of the file.
+- HTTP handlers, embedded assets, or shell-outs to the OS sit beside pure logic that needs none of them.
+
+These are symptoms, not a target. Split along domain lines and stay one level deep; never split into layers to satisfy the list. A package you can never change without changing its neighbor is one package wearing two names.
+
+### 5. Splitting a God Object
+
+The mechanical version, in order:
+
+1. Move the state and the mutex that guards it **together** — a field separated from its lock is a new bug, not a refactor.
+2. Move the methods that touch that state, and nothing else.
+3. Keep the fields unexported. The constructor (`NewX`) is the seam: it takes what the package needs, returns the type, and hides the lock.
+4. Let `main` construct it and hand it to whoever needs it. The new package must not know who calls it; if it needs to call back, the boundary is on the wrong line.
+5. Interfaces stay with the consumer (see **Interface Design**) — the new package does not define one to describe its own callers.
+
+Tests move with the state. If the new package still cannot be tested on its own, the split is not finished.
 
 ## Interface Design
 
@@ -410,6 +436,8 @@ Below Go 1.26, `errors.As` with `&target` remains the required form; it is corre
 ## Testing Patterns
 
 **Anti-Pattern:** Relying on heavy BDD frameworks (like Ginkgo) or complex mocking generation tools. Go testing should just be Go programming.
+
+**Layout decides what is testable.** `package main` cannot be imported, so code that lives there can only be exercised by building the whole binary. A domain that cannot be tested without constructing the server is a domain that wants its own package — that is the practical force behind the split triggers in **Package Organization**.
 
 ### 1. Table-Driven Tests
 
