@@ -140,6 +140,26 @@ func (c *Counter) Inc() {
 
 Handle errors and edge cases immediately and return. Do not use `else` blocks for the main logic. The "happy path" of your function should never be indented.
 
+## Write Less: The Necessity Ladder
+
+Before writing code, stop at the first rung that holds. Climb **after** you understand the problem — read the code the change touches and trace the real flow first. If two rungs both work, take the higher one and move on.
+
+1. **Does this need to exist?** "We'll want it later" is not a need. Skip it, and say so in one line.
+2. **Does the codebase already have it?** Search before you write — the helper, type, or pattern may already live a package over. Re-implementing what is already here is the most common form of this mistake.
+3. **Does the standard library do it?** In Go this rung catches more than any other: `net/http`'s ServeMux over a router, `slog` over a logging module, `slices`/`maps`/`cmp` over hand-rolled loops, `errors.Join` over `multierr`, `math/rand/v2` over an RNG helper. See **Standard Library: Use the New Packages**.
+4. **Does the toolchain or the platform already do it?** These are free and already installed: `//go:embed` over an asset pipeline or a loader, `os.Root` over hand-rolled path confinement, `sync.OnceValue` over a lazy-init helper, the `tool` directive over a script, build tags over a shell wrapper, a `CHECK` constraint or a unique index over application code that re-implements it. In a service's templates, a native input beats a component library and its bundle.
+5. **Is it already in `go.mod`?** Use the dependency you already pay for. Never add a module for what a few lines or an existing import can do — but this is not a stdlib-only rule: `golang.org/x/sync/errgroup`, `afero`, and `go-cmp` are installed dependencies this skill recommends (see **Concurrency Patterns** and **Testing Patterns**), not things to hand-roll.
+6. **Can it be one line?** Write the one line.
+7. **Only then:** the minimum that works — no extra files, layers, or knobs. An interface with one implementation, a factory for one product, and a config field for a value that never changes are all rung-7 failures.
+
+Rungs 3 and 4 name version-gated features (`sync.OnceValue` arrives in Go 1.21; `os.Root` and the `tool` directive in 1.24), so establish the module's floor before recommending one — see **Version Gating**.
+
+**Never cut:** validation at a trust boundary, error handling that prevents data loss, security, cleanup, and anything explicitly requested. In Go that means the error is still checked and wrapped, the `defer` that releases the resource stays, the mutex that makes the map safe stays, and a non-trivial branch or parser still leaves one runnable test behind (see **Testing Patterns**). Laziness shortens the solution, never the reading, and never the checks.
+
+**Fix the root cause, not the reported path.** A bug report names a symptom. Grep every caller of the function before touching it: one guard where all callers route through is a smaller diff than a guard at each call site, and it fixes the callers the ticket never mentioned.
+
+**Name the ceiling you accepted.** When the minimal version has a known limit, record it where the limit lives: `// yagni: whole-table lock — per-key locks if write throughput matters`. A stated ceiling is a simplification; an unstated one is a landmine.
+
 ## Package Organization: Flat by Default
 
 **Anti-Pattern:** Using deeply nested directory trees or relying heavily on an `internal/` folder by default to artificially enforce "Clean Architecture" layers. This leads to circular dependencies and difficult navigation.

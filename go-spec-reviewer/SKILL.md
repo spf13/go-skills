@@ -73,6 +73,7 @@ The `go` directive in `go.mod` is the language version in force for the module, 
 |---------|-----------------|
 | Simplicity | Unnecessary layers, abstractions with only one implementation, over-engineered designs |
 | Dependencies | Every proposed third-party dependency justified against a stdlib alternative? (routing, slices/maps helpers, multierror, etc.) |
+| Platform & toolchain | A dependency, background service, or hand-rolled mechanism doing what the compiler, runtime, toolchain, or platform already does? `//go:embed` over an asset pipeline, `os.Root` over path confinement, build tags or the `tool` directive over scripts, a database constraint over application code that re-implements it. The full necessity ladder is in the `go` skill — apply it at spec level, since a spec is where an over-build is cheapest to reject |
 | Interfaces | Defined by the consumer, not the implementor? Small (1–3 methods)? Used where polymorphism is actually needed? |
 | Error handling | Errors returned explicitly? Properly wrapped with `fmt.Errorf("%w", err)`? Not swallowed silently? Sentinel errors named where callers must branch? |
 | Context | `context.Context` threaded through any I/O, HTTP, or long-running calls? Timeouts specified? |
