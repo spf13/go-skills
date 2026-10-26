@@ -12,15 +12,6 @@ import (
 // `references/`, loaded only when the task needs it.
 const maxSkillLines = 500
 
-// overBudget records skills whose SKILL.md predates that budget. Each entry caps
-// the file at the length it had when the cap was recorded: the file may shrink
-// but never grow, and the entry goes away with the change that moves the excess
-// into `references/`. A skill absent from this table must satisfy the budget.
-var overBudget = map[string]int{
-	"cobra-viper":          609,
-	"fileflow-pathologize": 527,
-}
-
 // defersSection is the heading that resolves overlapping triggers without a
 // priority table.
 const defersSection = "## When NOT to Use This Skill"
@@ -30,7 +21,7 @@ const defersSection = "## When NOT to Use This Skill"
 // content instead of as an instruction.
 var placeholderRE = regexp.MustCompile(`\[[A-Z][A-Z0-9_ -]{2,}\]`)
 
-var referenceLinkRE = regexp.MustCompile(`(references/[^)\s"']+\.md)`)
+var referenceLinkRE = regexp.MustCompile(`(references/[^\\s)\\]"']+\.md)`)  // no ) and ]
 
 var fencedBlockRE = regexp.MustCompile("(?s)```.*?```")
 
@@ -55,27 +46,35 @@ func (c *checker) skillContent() error {
 		}
 		c.checkPlaceholders(rel, s.name, src)
 		c.checkReferences(rel, s.name, s.dir, src)
+		c.checkTokensAndSandbox(rel, s.name, src)
 	}
 	return nil
 }
 
-// checkBudget enforces the line budget, allowing a recorded cap for a skill that
-// predates it.
 func (c *checker) checkBudget(path, name, src string) {
 	lines := strings.Count(src, "\n")
 	if !strings.HasSuffix(src, "\n") {
 		lines++
 	}
-	if lines <= maxSkillLines {
-		return
+	if lines > maxSkillLines {
+		c.fail(path, 0, "%q: SKILL.md is %d lines; maximum is %d — move detail into references/", name, lines, maxSkillLines)
 	}
-	if cap, recorded := overBudget[name]; recorded {
-		if lines > cap {
-			c.fail(path, 0, "%q: SKILL.md is %d lines, above its recorded cap of %d; it may only shrink until it fits the %d-line budget", name, lines, cap, maxSkillLines)
-		}
-		return
+}
+
+func (c *checker) checkTokensAndSandbox(path, name, src string) {
+	// Estimated tokens: ~4 chars per token; budget is advisory until all skills fit
+	tokens := len(src) / 4
+	if tokens > 7000 {
+		c.fail(path, 0, "%q: SKILL.md is ~%d tokens; estimated budget is 7000", name, tokens)
 	}
-	c.fail(path, 0, "%q: SKILL.md is %d lines; maximum is %d — move detail into references/", name, lines, maxSkillLines)
+	// Machine-specific sandbox paths outside code fences
+	proseOnly := fencedBlockRE.ReplaceAllString(src, "")
+	if strings.Contains(proseOnly, "/mnt/skills/") {
+		c.fail(path, 0, "%q: SKILL.md contains a machine-specific sandbox path", name)
+	}
+	if strings.Contains(src, "<<<<<<<") || strings.Contains(src, ">>>>>>>") {
+		c.fail(path, 0, "%q: SKILL.md contains unresolved merge conflict markers", name)
+	}
 }
 
 // checkPlaceholders flags fill-in tokens a reader could mistake for content.

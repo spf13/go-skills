@@ -3,11 +3,6 @@
 These are the patterns LLMs most often get wrong:
 
 ```go
-<<<<<<< HEAD
-// Derive request-scoped fields from the injected logger
-func HandleRequest(ctx context.Context, logger *slog.Logger, r *Request) {
-    logger = logger.With("request_id", r.ID, "user_id", r.UserID)
-=======
 // Take a *slog.Logger as a dependency; derive a request-scoped child from it
 func HandleRequest(ctx context.Context, logger *slog.Logger, r *Request) {
     logger = logger.With("request_id", r.ID, "user_id", r.UserID)
@@ -18,7 +13,6 @@ func HandleRequest(ctx context.Context, logger *slog.Logger, r *Request) {
         slog.String("path", r.URL.Path),
     ))
 
->>>>>>> bec2f84 (fix(xgy4): address kata xgy4)
     // All subsequent log calls carry these fields automatically
     logger.Info("handling request")
     process(ctx, logger, r)

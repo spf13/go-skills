@@ -43,6 +43,18 @@ Before writing any code, determine the version from the project. Do not guess fr
 
 For general Go logic use `go`. For CLI apps use `cobra-viper`. For file operations use `fileflow-pathologize`. For packaging and versioning the shipped desktop binary use `go-release`. This skill is for desktop/webview apps only.
 
+
+## Prerequisites (Per-OS)
+
+Wails needs platform toolchains beyond Go itself. Check before the first build:
+
+| OS | Required |
+|---|---|
+| **macOS** | Xcode Command Line Tools (`xcode-select --install`) |
+| **Linux** | GTK3 + `libwebkit2gtk` dev packages (Debian: `libgtk-3-dev libwebkit2gtk-4.1-dev`; Fedora: `gtk3-devel webkit2gtk4.1-devel`) — the `4.1` variant; the unversioned alias may still point to 4.0 |
+| **Windows** | WebView2 runtime (ships with Windows 11; on 10, install the Evergreen Runtime) |
+
+Run `wails doctor` (or `wails3 doctor`) first — it reports the missing piece.
 ## Wails v2 (Stable)
 
 ### Canonical main.go
@@ -204,6 +216,10 @@ Nightly alphas rename, move, and delete APIs; an unpinned or floating version is
 
 ---
 
+
+## Testing
+
+Bound structs/services are thin adapters — unit-test domain packages in plain Go. In v2, test bound methods directly with a test context or E2E against the dev server. In v3, test service methods directly or drive the app via `WAILS_MCP=1` for integration.
 ## Version-Mixing Tells (Reject on Sight)
 
 - `runtime.EventsEmit(ctx, ...)` or `pkg/runtime` imports in a v3 project → v2 API; use `app.Event.Emit`.
@@ -212,6 +228,14 @@ Nightly alphas rename, move, and delete APIs; an unpinned or floating version is
 - Running `wails dev` against a v3 project or `wails3 dev` against v2.
 - `Bind:` field inside `application.Options`, or `Services:` inside `options.App` — each belongs only to its own version.
 
+
+## Frontend / Dev Build
+
+`wails dev` / `wails3 dev` proxies the live Vite dev server with HMR; stop the proxy and the Go backend stops too. `wails build` / `wails3 build` compiles `frontend/dist` and embeds it via `//go:embed all:frontend/dist` — the `all:` prefix is required in both v2 and v3 because Vite emits underscore-prefixed chunks that a bare `frontend/dist` pattern silently skips. Verify: delete `frontend/dist`, rebuild, and confirm the embedded assets are not stale.
+
+## Shipping
+
+Desktop concerns beyond versioning/checksums/provenance: code signing & macOS notarization / Windows Authenticode, auto-update (built-in in v3 via its update service; external in v2), deep links / file associations (OS URL handlers), single-instance lock, and crash reporting. For versioning, tagging, checksums, and provenance, see `go-release`; this skill owns the desktop-specific surface.
 ## Shared Principles (Both Versions)
 
 - The frontend is untrusted input: validate arguments in bound methods exactly as you would HTTP handlers; never build shell commands or file paths from raw frontend strings.

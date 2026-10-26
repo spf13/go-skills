@@ -160,33 +160,6 @@ func TestSkillContentRules(t *testing.T) {
 		assertIssue(t, f.check(t, Options{}), "demo/SKILL.md", "maximum is 500")
 	})
 
-	t.Run("recorded cap may only shrink", func(t *testing.T) {
-		f := newFixture(t)
-		// cobra-viper carries a recorded cap: a file above it fails, a file at it
-		// passes.
-		f.write(t, "cobra-viper/SKILL.md", skillBody(demoDescription))
-		f.write(t, ".claude-plugin/marketplace.json", `{
-  "name": "demo-market",
-  "owner": {"name": "Demo"},
-  "plugins": [
-    {"name": "demo", "source": "./demo", "category": "development", "tags": ["go", "demo"]},
-    {"name": "cobra-viper", "source": "./cobra-viper", "category": "development", "tags": ["go", "demo"]}
-  ]
-}`)
-		f.write(t, "cobra-viper/.claude-plugin/plugin.json", `{"name": "cobra-viper", "description": "`+demoDescription+`", "version": "1.0.0", "keywords": ["go", "demo"]}`)
-		f.write(t, "README.md", "| [`demo`](./demo/SKILL.md) | x |\n| [`cobra-viper`](./cobra-viper/SKILL.md) | y |\n")
-
-		atCap := strings.Replace(skillBody(demoDescription), "name: demo", "name: cobra-viper", 1)
-		atCap += strings.Repeat("filler line\n", overBudget["cobra-viper"]-strings.Count(atCap, "\n"))
-		f.write(t, "cobra-viper/SKILL.md", atCap)
-		if report := f.check(t, Options{}); !report.OK() {
-			t.Fatalf("a file at its recorded cap should pass, got %v", report.Issues)
-		}
-
-		f.write(t, "cobra-viper/SKILL.md", atCap+"one line too many\n")
-		assertIssue(t, f.check(t, Options{}), "cobra-viper/SKILL.md", "above its recorded cap")
-	})
-
 	t.Run("negative trigger section", func(t *testing.T) {
 		f := newFixture(t)
 		f.write(t, "demo/SKILL.md", strings.Replace(skillBody(demoDescription), defersSection, "## Related Skills", 1))

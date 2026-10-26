@@ -67,7 +67,7 @@ Frontmatter requires `name` and `description`.
 
 - `name` must equal the skill directory name and `plugin.json.name`.
 - `description` is what drives model-invoked triggering, and it is the only part of a skill a model reads before deciding whether to load the rest. CI checks that it exists, is at least 40 characters long, opens with `Use when` or `Use for`, stays under 1024 characters, and carries none of the banned coercive phrases below; wording beyond that is judged in review.
-- The file stays within **500 lines**. The whole skill is one context load, so anything longer belongs in `references/`, which the model reads only when a task needs it. Two skills predate this budget and are capped at their current length in `internal/check/skill.go` (`overBudget`) until their own split lands; a capped file may shrink but never grow.
+- The file stays within **500 lines**. The whole skill is one context load, so anything longer belongs in `references/`, which the model reads only when a task needs it.
 - The body carries a `## When NOT to Use This Skill` section.
 - No unresolved fill-in tokens such as `[PLACEHOLDER]` or `[SPEC_FILE_PATH]` outside fenced code: a model reads them as content.
 - Every `references/…md` link resolves to a file.

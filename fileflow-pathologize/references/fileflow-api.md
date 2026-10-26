@@ -15,6 +15,7 @@ func Move(src, dst string) (string, error)   // rename if same FS, else copy+del
 func Rename(src, dst string) (string, error) // same-FS only; fails on cross-device
 func Copy(src, dst string) (string, error)   // atomic copy; returns final path
 func Exists(path string) bool
+func Replace(src, dst string) (string, error) // always returns dst; replaces symlink dst, rejects symlink src
 func Equal(file1, file2 string) (bool, error) // byte-for-byte comparison
 ```
 

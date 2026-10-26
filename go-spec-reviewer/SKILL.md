@@ -61,19 +61,13 @@ Before reviewing, explore the existing codebase to understand conventions and sp
 | Testing | Does the spec say how this will be tested? Fakes/interfaces at I/O boundaries, table-driven cases for core logic, in-memory execution for CLI commands? |
 | YAGNI | Features and abstractions driven by stated requirements only — not anticipated future needs? |
 
-### Step 2b — Modern Language Feature Check
+### Step 2b — Modern Language Features
 
-Run this before approving a design that introduces interfaces, generics, or function-typed plumbing. A spec proposing a design the Go 1.26/1.27 language features make simpler is an Issue — the implementor will either build the workaround or silently simplify and drift from the spec.
-
-| Feature | Introduced | What to Look For |
-|---------|------------|------------------|
-| `new(expr)` | 1.26 | A helper or temporary variable where `new(expr)` expresses the value directly |
-| Self-referential type-parameter constraints | 1.26 | A spec asserting the self-reference is illegal, or carrying a workaround helper for it — the ban was lifted, `type Adder[A Adder[A]] interface { Add(A) A }` is legal |
-| Generic methods | 1.27 | A method-heavy design that copies a generic package-level helper instead of declaring type parameters on the method, as `math/rand/v2` now does with `(*Rand).N` alongside the package-level `N`. Two hard limits to check against the spec: methods of interfaces may not declare type parameters, and interface methods cannot be implemented by generic methods — a design relying on either will not compile |
-| Generalized function type inference | 1.27 | Explicit type arguments that inference now supplies — it applies wherever a generic function is assigned to, or converted to, a variable of a matching function type |
-| Struct-literal field selectors | 1.27 | A spec insisting a struct-literal key be a top-level field name of the struct type; any valid field selector for the struct type is now allowed |
+For specs introducing interfaces, generics, or function-typed plumbing, check whether Go 1.26/1.27 language features make the design simpler — `new(expr)`, self-referential type-parameter constraints, generic methods, generalized function type inference, struct-literal field selectors. If the spec carries a workaround where the language now has a direct form, flag it. Full list and version gates: `go` [references/version-index.md](../go/references/version-index.md) and [references/language.md](../go/references/language.md).
 
 ### Step 3 — Cobra/Viper CLI Check (skip if not a CLI)
+
+> CLI conventions are owned by `cobra-viper` and `go`. This table covers review-specific checks; for the full rules see those skills.
 
 | Concern | What to Look For |
 |---------|-----------------|

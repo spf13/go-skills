@@ -242,45 +242,8 @@ serveCmd.MarkFlagsOneRequired("file", "url")
 - Use `Flags` for command-specific options.
 - Always provide short flags (`-v`, `-o`) for common options.
 
-### 7. Group Commands in Help Output (Cobra 1.6+)
 
-For CLIs with many subcommands, group them so `--help` reads as a story, not a dump:
-
-```go
-rootCmd.AddGroup(&cobra.Group{ID: "core", Title: "Core Commands:"})
-rootCmd.AddGroup(&cobra.Group{ID: "admin", Title: "Admin Commands:"})
-serveCmd.GroupID = "core"
-migrateCmd.GroupID = "admin"
-```
-
-### 8. Shell Completion
-
-Cobra generates shell completion for free. Add dynamic completion for both flags *and* positional arguments:
-
-```go
-// Flag value completion
-serveCmd.RegisterFlagCompletionFunc("output", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-    return []string{"json", "yaml", "table"}, cobra.ShellCompDirectiveNoFileComp
-})
-
-// Positional argument completion
-buildCmd.ValidArgsFunction = func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-    return listTargets(), cobra.ShellCompDirectiveNoFileComp
-}
-```
-
-```bash
-myapp completion bash        > /etc/bash_completion.d/myapp
-myapp completion zsh         > "${fpath[1]}/_myapp"
-myapp completion fish        > ~/.config/fish/completions/myapp.fish
-myapp completion powershell  | Out-File -Encoding utf8 "$PROFILE\myapp.ps1"
-```
-
-### 9. Print Through the Command, Not `fmt.Printf`
-
-Inside any command, write to `cmd.OutOrStdout()` / `cmd.ErrOrStderr()` (or use `cmd.Println`). Direct `fmt.Printf` bypasses `SetOut`/`SetErr`, making output impossible to capture in tests.
-
-### 10. Deprecate Commands and Flags — Never Just Delete Them
+For help grouping, shell completion, and output capture: [references/cobra-advanced.md](references/cobra-advanced.md).
 
 Renaming a flag or folding a command into another is a breaking change for every script, CI job, and completion file in the wild. Cobra and pflag carry the deprecation machinery: the old surface keeps working while announcing its successor.
 
@@ -311,8 +274,7 @@ migrateCmd := &cobra.Command{
 }
 ```
 
-- `MarkDeprecated` and `MarkHidden` are `*pflag.FlagSet` methods reachable through `cmd.Flags()` / `cmd.PersistentFlags()`; both return an error for an unknown flag name, so don't discard it.
-- A deprecated command (`Deprecated` field) and a hidden command (`Hidden: true`) behave the same in listings — neither appears — but only the deprecated one announces itself when run.
+`MarkDeprecated`/`MarkHidden` are `*pflag.FlagSet` methods via `cmd.Flags()` — don't discard the error. A deprecated command announces itself when run; a hidden one doesn't, but neither appears in listings.
 
 **Migration-path rule:** never deprecate without naming the replacement, and never remove on the same release that deprecated. The message is a migration instruction — `MarkDeprecated("port", "use --addr")`, not `MarkDeprecated("port", "")`; a bare "deprecated" is a bug report from your users, not guidance. Keep the old form parsing for at least one minor release after the replacement ships, then delete it in a major version, alongside the deprecation's own removal.
 
@@ -320,13 +282,7 @@ migrateCmd := &cobra.Command{
 
 ### 12-Factor Configuration
 
-Twelve-factor configuration ([factor III](https://12factor.net/config)) means one binary runs unchanged everywhere: **the environment supplies the values**, and the code supplies only defaults safe to publish. For a Cobra/Viper CLI that comes down to five rules:
-
-- **The environment is the contract.** A committed `config.yaml` is a developer convenience, never the source of an environment's settings. The same binary in staging and production differs only by environment variables.
-- **Precedence is fixed and documented.** Explicit `Set()` → bound flags → environment → config file → defaults (§3 below). An operator can always override a baked default without a rebuild.
-- **Names are derived, not hand-mapped.** One `v.SetEnvPrefix("MYAPP")` plus one `SetEnvKeyReplacer` gives every key exactly one predictable variable name (§4 below), so new options are configurable by environment on the day they land.
-- **Secrets never ship as defaults.** Register the key with `v.SetDefault("db.password", "")` so `Unmarshal` sees it, but let the value come from the environment or a secret manager. Keep secrets off flags — flags are visible in `ps` and shell history.
-- **`--help` documents the knobs.** Every non-secret value an operator can set by environment should also be settable by flag, so discovery never requires reading the source.
+The environment supplies the values; the binary supplies only publishable defaults ([factor III](https://12factor.net/config)). One `v.SetEnvPrefix("MYAPP")` + `SetEnvKeyReplacer` gives every key a predictable env name (§4); precedence is `Set()` → flags → env → file → defaults (§3); secrets never ship as defaults; `--help` documents the knobs.
 
 ### 1. Prefer a Viper Instance over the Global Singleton
 
@@ -334,9 +290,7 @@ Twelve-factor configuration ([factor III](https://12factor.net/config)) means on
 
 ### 2. Unmarshal into Typed Structs
 
-**Anti-Pattern:** Calling `v.GetString("database.host")` deep inside your business logic. This tightly couples your domain to Viper and scatters magic strings throughout your codebase.
-
-Instead, define a strongly-typed configuration struct, unmarshal Viper's state into it at the routing layer (`cmd/`), and pass that struct down.
+Define a typed config struct, unmarshal at the routing layer, and pass that struct down — not `v.GetString` scattered through business logic.
 
 ```go
 type Config struct {
@@ -350,7 +304,7 @@ if err := v.Unmarshal(&cfg); err != nil {
 }
 ```
 
-A config struct that is also *marshaled* — a `config dump` command or a `--json` output mode — needs JSON tags on the same fields, and the zero-value options are not interchangeable. Use `omitzero` (Go 1.24) rather than `omitempty` for struct-typed fields, including `time.Time` and nested config structs: `omitempty` never treats a struct as empty, so an unset `time.Time` marshals as `"0001-01-01T00:00:00Z"`, while `omitzero` omits it:
+A config struct that is also *marshaled* needs JSON tags. Use `omitzero` (Go 1.24) over `omitempty` for struct-typed fields (`time.Time`, nested structs): `omitempty` never omits a struct, so a zero `time.Time` emits `"0001-01-01T00:00:00Z"`; `omitzero` omits it:
 
 ```go
 type Config struct {
@@ -370,16 +324,11 @@ Viper merges configuration sources in this order (highest → lowest priority):
 4. **Config file** (`~/.mycli.yaml`, `./.mycli.yaml`)
 5. **Defaults** (`v.SetDefault`)
 
-You must explicitly bind each source. Bind a whole flag set at once rather than flag-by-flag:
+Bind a whole flag set at once in `PersistentPreRunE` (not `init()` — avoids the collision where two subcommands' `init()` bind the same key and the last one silently wins):
 
 ```go
-// In PersistentPreRunE — after flags are parsed, before RunE
-if err := v.BindPFlags(cmd.Flags()); err != nil {
-    return err
-}
+if err := v.BindPFlags(cmd.Flags()); err != nil { return err }
 ```
-
-Binding in `PersistentPreRunE` (rather than `init()`) also avoids the classic collision where two subcommands bind different flags to the same Viper key and the last `init()` silently wins.
 
 ### 4. Environment Variable Mapping
 
@@ -457,86 +406,25 @@ db:
   name: myapp
 ```
 
-### 6. JSON Config Files Are Decoded Strictly (Go 1.27)
+### 6. JSON Strictness (Go 1.27)
 
-Since Go 1.27, `encoding/json` is backed by the `encoding/json/v2` implementation, and Viper decodes `.json` config files with `encoding/json`. The new defaults are stricter, and both of these are now errors where they previously slipped through:
-
-- Invalid UTF-8 inside a JSON string.
-- Duplicate names within the same object.
-
-The consequence for a CLI is concrete: **a config file that previously parsed can now fail**. `v.ReadInConfig()` returns the decode error, and because config loading runs in `PersistentPreRunE`, the command stops before `RunE` — the same file, unchanged, fails under a newer toolchain alone:
-
-```json
-{
-  "db": { "host": "localhost", "host": "db.internal" }
-}
-```
-
-That object has always been ambiguous — under the old decoder the last `host` silently won — and if that file is a user's `.myapp.json`, the upgrade turns a working command into one that exits with a config error on startup.
-
-Two escape hatches exist, both scoped to v1 semantics rather than to any part of your code: `encoding/json.Options` configures v1 behavior on top of the v2 implementation, and `GOEXPERIMENT=nojsonv2` restores the old implementation process-wide. The environment variable is a migration aid — it is expected to be removed in a future release — so prefer fixing the config file, or using `Options` deliberately, over depending on it.
-
-v1 *behavior* is otherwise preserved, but error message text may differ — never match on the text of a JSON decode error; match on its type.
-
-`v.Unmarshal` itself is unaffected by the switch: it maps fields with `mapstructure` tags, not `encoding/json`, so only the decode step changes.
+Go 1.27 backs `encoding/json` with `encoding/json/v2` — duplicate keys and invalid UTF-8 in JSON strings now fail where they once slipped through. A `.json` config that parsed before can now fail in `PersistentPreRunE` before `RunE` runs. Hatches: `encoding/json.Options` for v1 behavior, or `GOEXPERIMENT=nojsonv2` (temporary, will be removed). Prefer fixing the file. Details: [references/viper-config.md](references/viper-config.md).
 
 ### 7. Writing Configuration Back
 
-Viper also serializes: whatever merged state it holds can be written to disk. Four methods, two axes — explicit path or discovered path, force or safe:
-
-| Method | Target | Existing file |
-|--------|--------|---------------|
-| `v.WriteConfig()` | the path `ReadInConfig` resolved or `SetConfigFile` named | overwritten |
-| `v.SafeWriteConfig()` | `configPaths[0]` + `configName.configType` (so `AddConfigPath`, `SetConfigName`, and `SetConfigType` must all be set first) | returns `viper.ConfigFileAlreadyExistsError` |
-| `v.WriteConfigAs(path)` | the given path | overwritten |
-| `v.SafeWriteConfigAs(path)` | the given path | returns `viper.ConfigFileAlreadyExistsError` |
-
-The safe variants open with `O_EXCL`, so the existence check and the write are one atomic syscall — no window where two concurrent runs both "create" the file.
-
-**First-run pitfall:** `WriteConfig` and `SafeWriteConfig` write to a file Viper has *found or been named*. On a first run there is no such file — your `initConfig` swallowed `ConfigFileNotFoundError` (correctly) — so a later `WriteConfig` fails with that same `ConfigFileNotFoundError`: the path was only ever discovered, never chosen. Nothing is written, and the failure surfaces far from the read. Resolve the path yourself and write it explicitly:
-
-```go
-func writeConfig(v *viper.Viper, path string) error {
-    v.SetConfigType("yaml") // required when path has no .yaml suffix
-    // Safe: an existing user file is never clobbered; "already exists" is the
-    // only acceptable error, and it means the user's config is intact.
-    if err := v.SafeWriteConfigAs(path); err != nil {
-        if _, exists := errors.AsType[viper.ConfigFileAlreadyExistsError](err); exists {
-            return nil // or report "already initialized" to the user
-        }
-        return fmt.Errorf("writing config to %s: %w", path, err)
-    }
-    return nil
-}
-```
-
-Use `v.WriteConfigAs(path)` instead only where overwriting is the intent — a `config set` or `config dump` command — and take the path from `v.ConfigFileUsed()` when the user passed `--config`, so the write lands where the read came from.
-
-Two limits to design around:
-
-- **Write-back is a re-encode, not a round-trip.** Viper marshals its settings map, so the user's comments, key order, and formatting are gone. Say so in the command's help, or write the file only when the user asked for it.
-- **Only learned keys are written.** Keys come from defaults, the config file, `Set` overrides, and bound flags/env. A value that arrived purely through `AutomaticEnv` on an unregistered key is invisible and will not be persisted — the same registration gap as §4.
-
-Never write config back as a side effect of a read path (`PersistentPreRunE`, a plain `serve` run): a typo in one flag should not rewrite a user's file. Make persistence an explicit command, and prefer `SafeWriteConfigAs` for first-run/`init` flows.
+Viper can serialize its merged state: `WriteConfig`/`SafeWriteConfig`/`WriteConfigAs`/`SafeWriteConfigAs`, with the safe variants using `O_EXCL`. **First-run pitfall:** `WriteConfig`/`SafeWriteConfig` write to a file Viper has found or been named — on a first run with no file, they fail with `ConfigFileNotFoundError`. Resolve the path and use `SafeWriteConfigAs` explicitly. Never write back on a read path; make persistence a command. Full table, code, and limits: [references/viper-config.md](references/viper-config.md).
 
 ## Version Handling
 
-Cobra has a built-in version mechanism — prefer it over a hand-rolled subcommand:
+Cobra has a built-in version mechanism — prefer it over a subcommand:
 
 ```go
-// Set at build time via -ldflags
-var (
-    version = "dev"
-    commit  = "none"
-    date    = "unknown"
-)
-
+// Set at build time via -ldflags: var (version, commit, date string)
 rootCmd := &cobra.Command{
     Use:     "myapp",
-    Version: fmt.Sprintf("%s (commit: %s, built: %s)", version, commit, date),
+    Version: fmt.Sprintf("%s (commit:%s %s)", version, commit, date),
 }
-// `myapp --version` now works for free.
-// Customize the output with rootCmd.SetVersionTemplate if needed.
+// `myapp --version` works; customize with `SetVersionTemplate`.
 ```
 
 ```bash
