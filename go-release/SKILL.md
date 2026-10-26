@@ -5,13 +5,20 @@ description: >
   breaking-change detection, deprecation, go.mod hygiene, tagging, and binary distribution with
   GoReleaser. Use whenever a Go release is being cut, planned, or reviewed — any mention of
   version tags, semver, breaking changes, v2 modules, deprecating an API, editing go.mod for
-  release, changelogs, or shipping binaries. Also use when reviewing a PR or spec that changes
-  any exported identifier in a published Go library.
+  release, changelogs, or shipping binaries. Also use when a change to a *published* module's
+  exported API needs a versioning decision — patch, minor, or major — for an artifact people
+  already download.
 ---
 
 # Go Release Engineering: Versions, Compatibility, and Distribution
 
 A release is a promise. Once a version is tagged and fetched through the module proxy, it is immutable and someone depends on it forever. This skill covers how to make that promise correctly — for libraries (API compatibility) and applications (binary distribution).
+
+## Scope
+
+Two artifact kinds, and only these: **published Go modules** (tags fetched through the module proxy) and **shipped binaries and container images**. Both are promises to strangers, so both get the same discipline.
+
+This skill does not cover releasing the skill catalog this file ships in. That release is Markdown plus a version bump, a `CHANGELOG.md` entry, and an annotated tag, governed by the catalog's `CONTRIBUTING.md` — the module-proxy and artifact rules below do not apply to it. Reviewing an unshipped design is `go-spec-reviewer`'s job; this skill starts when published API has to become a version number.
 
 ## When to Activate
 
@@ -61,7 +68,7 @@ go run golang.org/x/exp/cmd/gorelease@latest
 go run golang.org/x/exp/cmd/apidiff@latest old/ new/
 ```
 
-`gorelease` reports incompatible changes and suggests the correct next version number. Run it in CI on every PR that touches exported identifiers — catching a break at review time is free; catching it after the tag costs a major version or a retraction.
+`gorelease` reports incompatible changes and suggests the correct next version number. Run it in CI on every PR that touches a published module's exported identifiers — catching a break at review time is free; catching it after the tag costs a major version or a retraction. For an application module with no importers there is nothing to compare, so skip it there.
 
 ## Deprecation: The Additive Escape Hatch
 
@@ -163,6 +170,17 @@ retract (
 
 Ship the retraction in the next release. `go get` skips retracted versions and `go list -m -u` warns users already on them. A version can even retract itself (`retract v1.5.0` inside v1.5.0's go.mod, published as v1.5.1... which retracts both). Retraction is advisory withdrawal — the only kind that exists.
 
+## Prereleases: Testing a Release Without Promising It
+
+A semver prerelease tag (`v1.5.0-rc.1`, `v1.5.0-beta.2`) is how real users get a real artifact without the ecosystem inheriting a promise:
+
+- **`go get` will not find it by accident.** Prerelease tags are not selected as `latest` unless the repository has no other semver tags, and `go get -u` never upgrades a dependent onto one. Adoption is explicit: `go get example.com/lib@v1.5.0-rc.1`.
+- **Ordering is semver ordering.** `v1.4.9 < v1.5.0-rc.1 < v1.5.0-rc.2 < v1.5.0`. A prerelease belongs to the version it will become — never cut `v1.4.10-rc.1` to "test the next patch" and then tag `v1.5.0`, which is a different version with different ordering.
+- **RCs are as immutable as releases.** The proxy caches `v1.5.0-rc.1` exactly as it caches `v1.5.0`. A broken RC gets `-rc.2`; deleting the tag only desynchronizes you from the proxy.
+- **Cut one when the risk moves.** Anything in the "yes" column of the breaking-change table, a raised `go` directive, or a bumped dependency minimum deserves an RC — those are the failures that surface in someone else's build, not yours.
+- **For binaries, say so at the release.** GoReleaser's `release: {prerelease: auto}` flags any tag carrying a prerelease suffix as a prerelease on the SCM, so it is not served as "latest", and `make_latest: false` keeps it out of `releases/latest`. `{{.Version}}` still carries the suffix into ldflags, so `app --version` prints `v1.5.0-rc.1` and a bug report names the RC.
+- **An RC is not a substitute for a version number.** `v1.5.0-rc.1` is a rehearsal, not a home: leave it standing for months and you have a v1.5.0-sized change that `go get` still resolves past, because it keeps handing people v1.4.x.
+
 ## Application Releases: Shipping Binaries
 
 For CLIs and services, the release artifact is a binary, and **GoReleaser is the standard** — don't hand-roll cross-compilation matrices in shell scripts or Makefiles.
@@ -180,7 +198,7 @@ builds:
       - -s -w
       - -X github.com/you/app/cmd.version={{.Version}}
       - -X github.com/you/app/cmd.commit={{.ShortCommit}}
-      - -X github.com/you/app/cmd.date={{.Date}}
+      - -X github.com/you/app/cmd.date={{.CommitDate}}
     goos: [linux, darwin, windows]
     goarch: [amd64, arm64]
 ```
@@ -188,15 +206,58 @@ builds:
 - `CGO_ENABLED=0` for static, portable binaries — enable cgo only when a dependency truly requires it.
 - `-trimpath` strips your local paths from the binary: smaller, reproducible, no leaked `/home/you/src/...` in panics.
 - `-s -w` strips symbol tables — standard for release binaries; omit if you want usable core dumps.
+- `{{.CommitDate}}`, not `{{.Date}}`, for the build-date variable. `{{.Date}}` is the moment the build ran, so the same tag produces a different binary on every run and no one can reproduce your release from source.
 
 Simpler fallback: `debug.ReadBuildInfo()` returns the module version and VCS revision with zero ldflags when installed via `go install` — a reasonable default before you need GoReleaser at all.
 
 ### Distribution Checklist
 
-- **Checksums:** GoReleaser emits `checksums.txt` by default — publish it.
-- **Signing/provenance:** cosign keyless signing or an SLSA provenance workflow once your project has enough users that supply-chain questions arrive. Don't cargo-cult this into a weekend project.
-- **`go install` must always work:** `go install github.com/you/app@latest` is the zero-infrastructure install path. Keep `main` at the repo root or under `cmd/app` so the path is guessable, and never break it with replace directives.
-- **Package managers** (Homebrew tap, nfpm for deb/rpm, Scoop): GoReleaser generates all of these from config — add them when users ask, not before.
+Work down the list; each item assumes the ones above it.
+
+1. **Checksums.** GoReleaser emits `checksums.txt` by default — publish it. Sign or attest that one file rather than each archive: one signature then covers every artifact you shipped.
+2. **Reproducibility.** `-trimpath` is necessary, not sufficient. Pin the toolchain (`toolchain` in go.mod, `GOTOOLCHAIN=local` in the release job), keep `CGO_ENABLED=0`, and — the part everyone skips — **never inject a build clock into the binary**. `{{.Date}}` is the build time, so it makes every build unique; use `{{.CommitDate}}` and the build becomes repeatable from the tag alone. Then verify the claim instead of asserting it:
+
+   ```bash
+   git checkout v1.4.0
+   CGO_ENABLED=0 go build -trimpath -o /tmp/a .
+   CGO_ENABLED=0 go build -trimpath -o /tmp/b .
+   cmp /tmp/a /tmp/b && echo reproducible
+   ```
+
+3. **SBOM.** GoReleaser catalogs archives with Syft by default (`sboms: [{artifacts: archive}]`, SPDX JSON). Ship those files next to the checksums — they make "does this CVE affect me?" answerable from the release page instead of from your source tree. The archive step does not see container images, but `dockers_v2` attaches an image SBOM by default (`sbom: true`).
+4. **Provenance and signing.** Keyless cosign over the checksum file, so the signature names the workflow that produced it:
+
+   ```yaml
+   checksum:
+     name_template: checksums.txt
+   signs:
+     - cmd: cosign
+       signature: "${artifact}.sigstore.json"
+       args: ["sign-blob", "--bundle=${signature}", "${artifact}", "--yes"]
+       artifacts: checksum
+   ```
+
+   Consumers then verify the publisher's *identity*, not just integrity, and only then the bytes:
+
+   ```bash
+   cosign verify-blob --bundle checksums.txt.sigstore.json \
+     --certificate-identity 'https://github.com/you/app/.github/workflows/release.yml@refs/tags/v1.4.0' \
+     --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' checksums.txt
+   sha256sum --check --ignore-missing checksums.txt
+   ```
+
+   Add build provenance as well (`actions/attest-build-provenance`, checked with `gh attestation verify`) once downstream users start asking how they know the binary is yours. Don't cargo-cult the full chain into a weekend project; put it in place before a security-sensitive consumer asks.
+5. **`go install` must always work.** `go install github.com/you/app@latest` is the zero-infrastructure install path. Keep `main` at the repo root or under `cmd/app` so the path is guessable, and never break it with replace directives.
+6. **Containers.** Build images from the binaries GoReleaser already produced — `dockers_v2` (v2.12+; the older `dockers:` is deprecated) or `ko:` for a Dockerfile-free build. Base on `scratch` or `distroless/static` since the binary is static, tag by version *and* commit SHA with `latest` as an alias rather than the only tag, and let `platforms` produce one multi-arch manifest instead of one image per platform users must choose between. A Dockerfile that runs `go build` duplicates the build you already did.
+7. **Package managers.** Homebrew tap/formula, nfpm for deb/rpm, Scoop: GoReleaser generates all of these from config — add them when users ask, not before.
+8. **GoReleaser version drift.** `.goreleaser.yaml` is versioned configuration: v2 requires `version: 2` at the top and rejects a v1 file outright ("only version: 2 configuration files are supported"). Pin both halves — the action *and* the GoReleaser release it runs (`version: '~> v2'`, not the action's `latest` default) — so a schema change surfaces in a PR instead of at tag time. Check and dry-run before the real run:
+
+   ```bash
+   goreleaser check
+   goreleaser release --snapshot --clean
+   ```
+
+   Deprecation warnings are scheduled work, not noise: in v2 a signer that writes no signature file is a warning, and v3 turns it into an error.
 
 ### Platform Floors Belong in the Release Notes
 
@@ -217,4 +278,6 @@ Supported targets and minimum OS versions move every Go release, and a cross-com
 - **Shipping a release with `replace` in go.mod** — dependents get different dependency versions than you tested.
 - **Treating error message text as stable API in docs/tests** — export sentinel errors; message wording is yours to change.
 - **Hand-rolled `GOOS`/`GOARCH` build loops in CI** — GoReleaser exists; a bespoke matrix is complexity with no payoff.
+- **Injecting `{{.Date}}` (build time) into ldflags** — no two builds match, so nobody can rebuild your binary from the tag; use `{{.CommitDate}}`.
+- **Letting the GoReleaser version float in CI** — the action's `latest` default turns a config-schema change into a failed release at tag time; pin it and run `goreleaser check` on PRs.
 - **Skipping `go mod tidy` before the tag** — the one hygiene step that can't be fixed after publishing.
