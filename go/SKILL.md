@@ -176,10 +176,10 @@ Note the two different things spelled `cmd/`. `cmd/<name>/` is a binary entrypoi
 
 ### 2. The Proper Use of `internal/`
 
-The `internal/` directory has a specific compiler enforcement: it prevents other modules from importing the code inside it.
+The `internal/` directory has a specific compiler enforcement: it prevents other modules from importing the code inside it. That is its only job, so the rule is scoped by what you are building:
 
-- **For Applications:** If you are building an executable binary, nobody can import your code anyway. Using `internal/` here is usually just adding unnecessary path depth.
-- **For Libraries:** Use `internal/` sparingly. It should be reserved for complex subsystems where you need to share exported types between your own packages, but absolutely must prevent end-users from relying on those types.
+- **Applications: no `internal/`.** Nobody can import an executable's code anyway, so it buys nothing but path depth.
+- **Libraries: at most one level.** Reserve it for a subsystem whose exported types must be shared between your own packages but must not be relied on by end-users. `internal/store` is fine; `internal/store/sql/repo` is not.
 
 ```
 // Idiomatic: A flat, feature-focused library or simple app
@@ -195,7 +195,7 @@ myproject/
 
 ### 3. Domain Packages for Service Applications
 
-When an application has genuinely distinct, independently-testable domains, give each its own top-level package. The rule is still **one level deep** — no `internal/` nesting, no Clean Architecture layers. Each package owns one concern. `main.go` wires them together.
+When an application has genuinely distinct, independently-testable domains, give each its own top-level package. Each package sits **one level deep** — no Clean Architecture layers, and no `internal/` (§2). Each package owns one concern. `main.go` wires them together.
 
 The signal to create a package: can this domain be described in one sentence, and can it do its job without knowing the packages that call it? If yes, it earns its own package.
 
@@ -1131,9 +1131,9 @@ go tool stringer -type=Color   # run it
 The skill note above covers basic setup. The patterns LLMs most often get wrong:
 
 ```go
-// Pass a logger via context for request-scoped logging
-func HandleRequest(ctx context.Context, r *Request) {
-    logger := slog.With("request_id", r.ID, "user_id", r.UserID)
+// Derive request-scoped fields from the injected logger
+func HandleRequest(ctx context.Context, logger *slog.Logger, r *Request) {
+    logger = logger.With("request_id", r.ID, "user_id", r.UserID)
     // All subsequent log calls carry these fields automatically
     logger.Info("handling request")
     process(ctx, logger, r)
@@ -1153,9 +1153,8 @@ logger.Warn("retrying", "attempt", n)       // recoverable problems
 logger.Error("request failed", "err", err)  // needs attention
 ```
 
-- **Never** use a package-level `log` or `slog` global beyond `main`. Pass `*slog.Logger` as a dependency.
+- **One logger policy: inject `*slog.Logger`.** Any package that logs takes a `*slog.Logger` parameter (or holds one on a struct) — never a package-level `log` or `slog` global, and never a `slog.Default()` fallback inside library code. `slog.Default()` is created and used only at the `main` boundary, which passes that logger, or one derived from it, down the call chain.
 - **Never** log and return an error. Log at the boundary, return the error through the call stack.
-- Use `slog.Default()` as the fallback only in `main` or in libraries when no logger is provided.
 
 ## Experimental Packages: Not for Production
 
