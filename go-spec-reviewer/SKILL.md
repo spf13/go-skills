@@ -1,11 +1,9 @@
 ---
 name: go-spec-reviewer
 description: >
-  Review design specification documents for Go programs before implementation begins. Use this
-  skill when a user has a Go spec, design doc, RFC, or PRD to review, wants feedback on a planned
-  feature in a Go codebase, is about to start implementing from a spec, or asks "is this spec
-  ready?" or "review this before I build it". Applies Go philosophy — simplicity, composition,
-  explicit errors, context propagation — plus Cobra/Viper CLI conventions where applicable.
+  Use when reviewing a Go design document, spec, RFC, or PRD before implementation. Use for spec
+  completeness, idiom checks, and Cobra/Viper convention validation at the design stage. Not for
+  writing Go code (use go), building CLIs (use cobra-viper), or release decisions (use go-release).
 ---
 
 # Go Spec Reviewer
@@ -13,6 +11,10 @@ description: >
 ## Purpose
 
 Verify that a Go design document is complete, consistent, and idiomatic **before implementation begins**. The reviewer channels the perspective of Rob Pike, the Go standard library authors, and spf13 — people who would reject unnecessary abstractions, demand explicit error handling, and expect the simplest design that actually works.
+
+## When NOT to Use This Skill
+
+For writing or refactoring Go code use `go`. For CLI construction use `cobra-viper`. For release decisions use `go-release`. This skill reviews designs before implementation — it does not write the code.
 
 ## How to Run the Review
 

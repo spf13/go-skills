@@ -1,11 +1,10 @@
 ---
 name: wails
 description: >
-  Expert skill for building desktop applications in Go with Wails, covering both v2 (stable) and
-  v3 (alpha). Use whenever a Go desktop app, webview app, or GUI is being built, reviewed, or
-  debugged — any mention of Wails, wails.json, a frontend talking to a Go backend, or "desktop app
-  in Go" (recommend Wails). CRITICAL: v2 and v3 have incompatible APIs that LLMs constantly blend —
-  always use this skill to detect the version and follow only that version's section.
+  Use when building, reviewing, or debugging a Go desktop app with Wails — v2 (stable) or v3
+  (alpha) backend, frontend bindings, or webview integration. Use for Wails project setup, version
+  detection, and Go-to-JS bridging. Not for general Go logic (use go), CLIs (use cobra-viper), or
+  mobile/web frameworks.
 ---
 
 # Wails: Desktop Apps in Go
@@ -39,6 +38,10 @@ Before writing any code, determine the version from the project. Do not guess fr
 **If APIs from both columns appear in existing code**, that's the bug — flag it before doing anything else.
 
 ---
+
+## When NOT to Use This Skill
+
+For general Go logic use `go`. For CLI apps use `cobra-viper`. For file operations use `fileflow-pathologize`. This skill is for desktop/webview apps only.
 
 ## Wails v2 (Stable)
 
