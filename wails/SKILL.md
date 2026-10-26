@@ -12,7 +12,7 @@ description: >
 
 Wails builds native desktop applications with a Go backend and a web frontend rendered in the platform webview (WebKit on macOS/Linux, WebView2 on Windows). No bundled Chromium — binaries are megabytes, not hundreds of megabytes.
 
-**Two major versions coexist, with incompatible APIs.** v2 is stable. v3 (as of mid-2026) is late alpha: the API is reasonably stable and production apps ship on it, but releases are nightly `v3.0.0-alpha2.x` tags and details still move. The single most common failure mode — for LLMs especially — is mixing v2 and v3 code. **Every response must be pure v2 or pure v3.**
+**Two major versions coexist, with incompatible APIs.** v2 is stable. v3 is late alpha — production apps do ship on it, but releases are nightly `v3.0.0-alpha2.x` tags, the API still churns between them, so an exact alpha must be pinned (see [Pinning v3](#pinning-v3-exact-commands)) and it must never be presented as stable. The single most common failure mode — for LLMs especially — is mixing v2 and v3 code. **Every response must be pure v2 or pure v3.**
 
 ## Step 0 — Detect the Version (Mandatory)
 
@@ -28,7 +28,7 @@ Before writing any code, determine the version from the project. Do not guess fr
 | Runtime calls | `runtime.EventsEmit(ctx, ...)` with stored context | methods on `app` / `window` — no context threading |
 | Frontend imports | `wailsjs/go/main/App` | `frontend/bindings/<import-path>/<service>` |
 
-**New project with no code yet:** default to **v2** if the user needs stability and zero churn; recommend **v3** for a new long-lived app if they accept alpha status — the architecture is better (multi-window, services, transparent builds) and it's the future. State the trade-off in one sentence and pin the exact alpha version in go.mod. Never present v3 as stable.
+**New project with no code yet:** default to **v2** if the user needs stability and zero churn; recommend **v3** for a new long-lived app only if they accept late-alpha status — the architecture is better (multi-window, services, transparent builds) and it's the future. State the trade-off in one sentence, then follow [Pinning v3](#pinning-v3-exact-commands).
 
 **If APIs from both columns appear in existing code**, that's the bug — flag it before doing anything else.
 
@@ -169,8 +169,29 @@ Agentic bonus: building with `WAILS_MCP=1` embeds an MCP server so LLM agents (i
 
 ### v3 Alpha Discipline
 
-- **Pin the alpha version** in go.mod and upgrade deliberately, reading the changelog (`v3.wails.io/changelog`) — nightly alphas can rename APIs.
-- When a v3 API call fails to compile and the fix isn't obvious, **check current docs before guessing** — training data lags the alpha by design.
+Nightly alphas rename, move, and delete APIs; an unpinned or floating version is the top cause of v3 code that no longer compiles. Follow this procedure on every v3 project, not just when something breaks.
+
+#### Pinning v3 (exact commands)
+
+1. **List the tags that exist** — never assume a version number:
+   ```bash
+   go list -m -versions github.com/wailsapp/wails/v3
+   ```
+   Pick the highest `v3.0.0-alpha2.<N>` tag from that output.
+
+2. **Pin that exact tag in go.mod:**
+   ```bash
+   go get github.com/wailsapp/wails/v3@v3.0.0-alpha2.<N>
+   ```
+   Never `@latest` and never `@master`: `@latest` silently pulls a newer alpha mid-project and churns the API underneath working code; `@master` is untagged and unreviewable. The `require` line in `go.mod` must read the full tag.
+
+3. **Match the `wails3` CLI to the pinned module version:**
+   ```bash
+   go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha2.<N>
+   ```
+   A CLI that is newer or older than the pinned module generates bindings and `Taskfile.yml` steps that don't compile against it. Confirm with `wails3 doctor` plus a grep of `go.mod` before building.
+
+4. **Read the changelog before any bump:** check `v3.wails.io/changelog` between the current and target tag for renamed or moved APIs, then re-run `wails3 generate bindings` and fix compile errors — rather than guessing from memory, since training data lags the alpha by design.
 
 ---
 
