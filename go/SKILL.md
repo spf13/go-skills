@@ -438,7 +438,28 @@ if err != nil {
 }
 ```
 
-### 3. `errors.AsType[T]` over `errors.As` (Go 1.26)
+### 3. Sentinel Errors: `errors.Is` and `errors.As`
+
+Declare sentinels once at package level, return or wrap that same value (`%w`), and match with `errors.Is` — never `==` on a returned error, never string comparison.
+
+```go
+var ErrNotFound = errors.New("not found")
+
+// errors.Is walks the wrap chain; == does not.
+if _, err := store.Find(id); errors.Is(err, ErrNotFound) {
+    return fmt.Errorf("loading user %s: %w", id, err)
+}
+
+// errors.As extracts a typed error and its data.
+var pathErr *fs.PathError
+if errors.As(err, &pathErr) {
+    use(pathErr.Path)
+}
+```
+
+Returning `errors.New("not found")` at the call site destroys identity: the caller can no longer match it.
+
+### 4. `errors.AsType[T]` over `errors.As` (Go 1.26)
 
 For modules whose floor is Go 1.26 or later, use `errors.AsType[T](err)` — generic, type-safe, and faster, because it needs no pre-declared target and no pointer-to-pointer argument:
 
@@ -462,6 +483,8 @@ Below Go 1.26, `errors.As` with `&target` remains the required form; it is corre
 **Anti-Pattern:** Relying on heavy BDD frameworks (like Ginkgo) or complex mocking generation tools. Go testing should just be Go programming.
 
 **Layout decides what is testable.** `package main` cannot be imported, so code that lives there can only be exercised by building the whole binary. A domain that cannot be tested without constructing the server is a domain that wants its own package — that is the practical force behind the split triggers in **Package Organization**.
+
+**The test loop is `go test -race ./...`.** Run it as the ordinary loop, not a special occasion: the race detector is the only reliable way to catch unsynchronized access to shared memory, and it proves the race rather than waiting for a flake. Keep the suite fast enough that `-race` stays affordable.
 
 ### 1. Table-Driven Tests
 
@@ -905,6 +928,12 @@ var val32 atomic.Int32
 var val64 atomic.Uint64
 ```
 
+### `context.Context`: First Parameter, Never a Struct Field
+
+- `ctx context.Context` is the first parameter of every function that does I/O, blocks, or starts a goroutine. Name it `ctx`, never `context`, never nil — start from `context.Background()` (or `t.Context()` in tests) and thread it down.
+- **Never store a context in a struct field.** The struct outlives the request that created the context, so cancellation silently stops working and one request's deadline leaks into another's work. Store the values you need, not the context.
+- Context carries cancellation, deadlines, and request-scoped metadata only — never optional parameters, a logger, a config, or a DB handle. See **Structured Logging** for passing `*slog.Logger` explicitly.
+
 ### `context.WithoutCancel` (Go 1.21)
 
 When you need to detach a context's cancellation but preserve its values (e.g., for a background task that should outlive a request):
@@ -1187,6 +1216,10 @@ These APIs ship behind `GOEXPERIMENT` build-time flags, and their APIs are expli
 - **`simd` (Go 1.27)** — portable, vector-size-agnostic SIMD behind `GOEXPERIMENT=simd`, available on all architectures. Write vector code once and let the compiler map it to the hardware width.
 - **`simd/archsimd` (Go 1.26; extended in Go 1.27)** — architecture-specific SIMD behind `GOEXPERIMENT=simd`. Introduced for amd64 in Go 1.26; Go 1.27 extends it to arm64 Neon and WebAssembly 128-bit SIMD. It is intentionally non-portable.
 - **`runtime/secret` (Go 1.26)** — behind `GOEXPERIMENT=runtimesecret`, amd64 and arm64 Linux only. Goroutines created while in secret mode also execute in secret mode as of Go 1.27.
+
+## Static Analysis Baseline
+
+Beyond `go vet` (and the `stdversion` check it now includes), the baseline is `gofmt -l .` for formatting and `staticcheck ./...` — or `golangci-lint run`, which embeds staticcheck — before review, because they catch dead code, misused stdlib calls, and nil-safety bugs that vet does not.
 
 ## Debugging: The Go Toolchain Is Not the Problem
 
