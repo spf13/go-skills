@@ -6,7 +6,7 @@ This repository publishes six [Agent Skills](https://docs.claude.com/en/docs/cla
 - a fix or expansion to an existing skill's `SKILL.md`,
 - a change to the catalog metadata.
 
-Every structural rule below is enforced by CI. Contribution shape is checked on every push and pull request by `.github/workflows/validate.yml`; the Go release currency rule runs on a schedule in `.github/workflows/go-release-check.yml`. If a rule is not in this document, CI does not check it; if it is in this document, CI fails when you break it — with one exception, the description standard in §SKILL.md, which is judged in review because no check reads prose yet.
+Every structural rule below is enforced by CI. Contribution shape is checked on every push and pull request by `.github/workflows/validate.yml (`go run ./cmd/check`)`; the Go release currency rule runs on a schedule in `.github/workflows/go-release-check.yml`. If a rule is not in this document, CI does not check it; if it is in this document, CI fails when you break it — with one exception, the description standard in §SKILL.md, which is judged in review because no check reads prose yet.
 
 ## Repository shape
 
@@ -134,13 +134,11 @@ For example, `go/SKILL.md` carries `current through Go 1.27` in its description.
 ## Run the checks locally
 
 ```bash
-python3 -m pip install --user jsonschema
+go run ./cmd/check          # all invariants + content checks (hermetic, no network)
+go vet ./...                # Go samples compile
 
-# 1. Manifests validate against the published schemastore schemas
-python3 .github/scripts/validate_manifests.py
-
-# 2. Cross-file invariants (the rules in this document)
-python3 .github/scripts/check_invariants.py
+# With a claimed Go release to check currency:
+# go run ./cmd/check go1.27.3   # or GO_RELEASE_LATEST=go1.27.3 go run ./cmd/check
 
 # 3. Go release currency (pass the value the workflow fetched)
 python3 .github/scripts/check_go_release.py "$(curl -fsS 'https://go.dev/dl/?mode=json' | jq -r '[.[] | select(.stable == true)][0].version')"

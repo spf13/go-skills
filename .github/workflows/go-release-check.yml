@@ -37,9 +37,10 @@ jobs:
         id: check
         env:
           GO_RELEASE_LATEST: ${{ steps.latest.outputs.version }}
+          CHECK_ROOT: ${{ github.workspace }}
         run: |
           set -o pipefail
-          python3 .github/scripts/check_go_release.py "$GO_RELEASE_LATEST" 2>&1 | tee drift.txt
+          go run ./cmd/check "$GO_RELEASE_LATEST" 2>&1 | tee drift.txt
 
       - name: Open or update the standing drift issue
         if: failure() && steps.check.outcome == 'failure'

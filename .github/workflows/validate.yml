@@ -8,28 +8,18 @@ permissions:
   contents: read
 
 jobs:
-  manifests:
-    name: manifests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.x"
-      - name: Validate manifests against the published schemastore schemas
-        run: |
-          python3 -m pip install --quiet jsonschema
-          python3 .github/scripts/validate_manifests.py
-
-  invariants:
-    name: invariants
+  check:
+    name: check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Check cross-file invariants
-        run: python3 .github/scripts/check_invariants.py
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+      - name: Run hermetic catalog check
+        run: go run ./cmd/check
 
   links:
     name: links

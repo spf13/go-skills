@@ -5,7 +5,7 @@ description: >
   or project layout. Use for Go idioms, package organization, testing patterns, and version-gated
   features. Not for CLI framework setup (use cobra-viper), release mechanics (use go-release), spec
   review (use go-spec-reviewer), desktop apps (use wails), or file operations on untrusted paths
-  (use fileflow-pathologize). Current through Go 1.27.
+  (use fileflow-pathologize). current through Go 1.27.
 ---
 
 # Idiomatic Go: The Go Way
