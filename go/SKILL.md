@@ -29,7 +29,7 @@ Every version-gated feature is a floor: the module's packages must compile on th
 2. Check the file's build constraints. A file behind `//go:build go1.24` may use Go 1.24 features even when the module's `go` directive is older.
 3. If the floor is unknown, read `go.mod` or ask. Never guess, and never assume the reader is on the latest release.
 
-The inverse error is just as real: do not flag an idiom as unavailable in a module whose floor already permits it, and never raise a module's `go` directive merely to reach a convenience helper — a `go` directive is a floor imposed on every dependent of the module.
+The inverse errors are just as real: do not flag an idiom as unavailable in a module whose floor already permits it, and do not flag an idiom as obsolete when the floor cannot reach its replacement — a module below a feature's release is entitled to the older idiom. And never raise a module's `go` directive merely to reach a convenience helper — a `go` directive is a floor imposed on every dependent of the module.
 
 ### The Version → Feature Index
 
