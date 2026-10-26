@@ -6,7 +6,7 @@ This repository publishes six [Agent Skills](https://docs.claude.com/en/docs/cla
 - a fix or expansion to an existing skill's `SKILL.md`,
 - a change to the catalog metadata.
 
-Every structural rule below is enforced by CI. Contribution shape is checked on every push and pull request by `.github/workflows/validate.yml (`go run ./cmd/check`)`; the Go release currency rule runs on a schedule in `.github/workflows/go-release-check.yml`. If a rule is not in this document, CI does not check it; if it is in this document, CI fails when you break it — with one exception, the description standard in §SKILL.md, which is judged in review because no check reads prose yet.
+Every structural rule below is enforced by CI. Contribution shape is checked on every push and pull request by `.github/workflows/validate.yml`, which runs `go test ./...` and then `go run ./cmd/check`; the Go release currency rule runs on a schedule in `.github/workflows/go-release-check.yml`. The checker is one zero-dependency Go program (`cmd/check` + `internal/check`) that replaced three Python scripts: it needs no `pip install` and fetches nothing from the network. If a rule is not in this document, CI does not check it; if it is in this document, CI fails when you break it — with one exception, the wording half of the description standard in §SKILL.md, which is judged in review because no check reads prose meaning.
 
 ## Repository shape
 
@@ -27,6 +27,15 @@ One directory per skill at the repository root. Each directory is a single-skill
 ## Manifest contract
 
 `<skill>/.claude-plugin/plugin.json` is the **single source of truth** for a skill's display metadata: `name`, `displayName`, `description`, `version`, `author`, `homepage`, `repository`, `license`, `keywords`.
+
+Both manifests are validated against the published schemastore schemas (`claude-code-marketplace.json`, `claude-code-plugin-manifest.json`). Those schemas are vendored in `internal/check/schemas/` so the check stays hermetic; refresh them deliberately, never automatically:
+
+```bash
+curl -fsSL https://json.schemastore.org/claude-code-marketplace.json \
+  -o internal/check/schemas/claude-code-marketplace.json
+curl -fsSL https://json.schemastore.org/claude-code-plugin-manifest.json \
+  -o internal/check/schemas/claude-code-plugin-manifest.json
+```
 
 The matching `marketplace.json` entry carries **exactly four keys**:
 
@@ -57,7 +66,12 @@ An entry's `tags` must equal its `plugin.json` `keywords` as a set, with no dupl
 Frontmatter requires `name` and `description`.
 
 - `name` must equal the skill directory name and `plugin.json.name`.
-- `description` is what drives model-invoked triggering, and it is the only part of a skill a model reads before deciding whether to load the rest. CI checks that it exists and is at least 40 characters long; its shape, wording, and ceiling below are judged in review.
+- `description` is what drives model-invoked triggering, and it is the only part of a skill a model reads before deciding whether to load the rest. CI checks that it exists, is at least 40 characters long, opens with `Use when` or `Use for`, stays under 1024 characters, and carries none of the banned coercive phrases below; wording beyond that is judged in review.
+- The file stays within **500 lines**. The whole skill is one context load, so anything longer belongs in `references/`, which the model reads only when a task needs it. Two skills predate this budget and are capped at their current length in `internal/check/skill.go` (`overBudget`) until their own split lands; a capped file may shrink but never grow.
+- The body carries a `## When NOT to Use This Skill` section.
+- No unresolved fill-in tokens such as `[PLACEHOLDER]` or `[SPEC_FILE_PATH]` outside fenced code: a model reads them as content.
+- Every `references/…md` link resolves to a file.
+- A fenced `go` sample that is complete — it carries its own `package` clause — must compile and vet. The check imports nothing, so only standard-library samples are built; a complete sample that imports another module is counted and skipped rather than failed. Partial samples (a statement, a signature, an excerpt) are never compiled.
 
 ### Description standard
 
@@ -125,27 +139,26 @@ For example, `go/SKILL.md` carries `current through Go 1.27` in its description.
 - A skill with no claim passes; the claim is optional.
 - A skill that makes a claim must name the latest stable release. Being behind fails loudly, naming the skill, the claimed version, and the actual latest.
 - The claim moves only in the same change that adds the release's features. Do not bump it ahead of a release that has not shipped.
-- The claim must not disappear from a skill that carries one. The set of known claiming skills is recorded in the check itself (`CLAIMING_SKILLS` in `.github/scripts/check_go_release.py`), because the repository keeps no other record of it.
+- The claim must not disappear from a skill that carries one. The set of known claiming skills is recorded in the check itself (`claimingSkills` in `internal/check/release.go`), because the repository keeps no other record of it.
 
-**Only `go` claims, by decision.** The phrase asserts coverage of the whole language and standard-library surface, and only `go` enumerates that surface. `go-release`, `go-spec-reviewer`, `cobra-viper`, and `fileflow-pathologize` teach individual 1.26/1.27 features and state the floor where each one applies (`Go 1.26+`, `go 1.27 or later`), so each goes stale feature-by-feature rather than release-by-release — a coverage claim on them would be false the moment one skill missed a release's feature. They stay claim-free. A skill that later asserts release coverage adds itself to `CLAIMING_SKILLS` in the same change that adds the claim; never add the claim to a skill that only consumes individual features.
+**Only `go` claims, by decision.** The phrase asserts coverage of the whole language and standard-library surface, and only `go` enumerates that surface. `go-release`, `go-spec-reviewer`, `cobra-viper`, and `fileflow-pathologize` teach individual 1.26/1.27 features and state the floor where each one applies (`Go 1.26+`, `go 1.27 or later`), so each goes stale feature-by-feature rather than release-by-release — a coverage claim on them would be false the moment one skill missed a release's feature. They stay claim-free. A skill that later asserts release coverage adds itself to `claimingSkills` in the same change that adds the claim; never add the claim to a skill that only consumes individual features.
 
-`.github/workflows/go-release-check.yml` enforces this on the first of each month and on manual dispatch. It reads the latest stable release from `https://go.dev/dl/?mode=json` (entries with `"stable": true`; pre-releases are ignored), runs the check, and on failure opens an issue titled `Go release drift`, or comments on the existing open one instead — so a long-standing drift does not file a new issue every month.
+`.github/workflows/go-release-check.yml` enforces this on the first of each month and on manual dispatch. It is the only part of the pipeline that touches the network: it reads the latest stable release from `https://go.dev/dl/?mode=json` (entries with `"stable": true`; pre-releases are ignored) and hands it to the checker as `-latest`. On failure it opens an issue titled `Go release drift`, or comments on the existing open one instead — so a long-standing drift does not file a new issue every month.
 
 ## Run the checks locally
 
 ```bash
-go run ./cmd/check          # all invariants + content checks (hermetic, no network)
-go vet ./...                # Go samples compile
+go test ./...               # the checker's own tests
+go run ./cmd/check          # every rule, against the working tree (hermetic, no network)
 
-# With a claimed Go release to check currency:
-# go run ./cmd/check go1.27.3   # or GO_RELEASE_LATEST=go1.27.3 go run ./cmd/check
+# Go release currency, with the value the scheduled workflow fetched:
+go run ./cmd/check -latest go1.27.3    # or GO_RELEASE_LATEST=go1.27.3 go run ./cmd/check
 
-# 3. Go release currency (pass the value the workflow fetched)
-python3 .github/scripts/check_go_release.py "$(curl -fsS 'https://go.dev/dl/?mode=json' | jq -r '[.[] | select(.stable == true)][0].version')"
-
-# 4. Links in README.md and CONTRIBUTING.md resolve
+# Links in README.md and CONTRIBUTING.md resolve
 lychee README.md CONTRIBUTING.md
 ```
+
+`go run ./cmd/check` exits 0 when every rule holds, 1 with a `path:line:` list of violations, and 2 when the checker itself cannot run. Run it from anywhere inside the repository; `-root` points it elsewhere. Without `-latest` the release comparison is skipped, because a local run has no network: the claim-must-not-disappear rule still applies.
 
 ## Adding a new skill
 

@@ -21,6 +21,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
 
       - name: Fetch the latest stable Go release
         id: latest
@@ -35,12 +38,9 @@ jobs:
 
       - name: Check every skill's 'current through Go X.Y' claim
         id: check
-        env:
-          GO_RELEASE_LATEST: ${{ steps.latest.outputs.version }}
-          CHECK_ROOT: ${{ github.workspace }}
         run: |
           set -o pipefail
-          go run ./cmd/check "$GO_RELEASE_LATEST" 2>&1 | tee drift.txt
+          go run ./cmd/check -latest "${{ steps.latest.outputs.version }}" 2>&1 | tee drift.txt
 
       - name: Open or update the standing drift issue
         if: failure() && steps.check.outcome == 'failure'
