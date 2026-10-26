@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "go",
+  "displayName": "Idiomatic Go",
+  "description": "Use when writing, reviewing, or refactoring Go packages, error handling, interfaces, concurrency, or project layout. Use for Go idioms, package organization, testing patterns, and version-gated features. Not for CLI framework setup (use cobra-viper), release mechanics (use go-release), spec review (use go-spec-reviewer), desktop apps (use wails), or file operations on untrusted paths (use fileflow-pathologize). current through Go 1.27.",
+  "version": "1.1.0",
+  "author": {
+    "name": "Steve Francia",
+    "email": "steve.francia@gmail.com"
+  },
+  "homepage": "https://github.com/spf13/go-skills",
+  "repository": "https://github.com/spf13/go-skills",
+  "license": "MIT",
+  "keywords": [
+    "go",
+    "golang",
+    "idiomatic",
+    "patterns",
+    "concurrency",
+    "testing"
+  ]
+}
