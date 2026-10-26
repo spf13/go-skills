@@ -339,7 +339,7 @@ func FetchAll(ctx context.Context, urls []string, maxConcurrent int) error {
 }
 ```
 
-Loop variables are per-iteration since Go 1.22 — never emit the old `url := url` capture line.
+Loop variables are per-iteration since Go 1.22 — on a floor of Go 1.22 or later, never emit the old `url := url` capture line. Below that floor the capture line is still required, or goroutines will read the loop variable after it has advanced.
 
 When you don't need error propagation, `sync.WaitGroup.Go` (Go 1.25) removes the Add/Done boilerplate:
 
@@ -536,7 +536,7 @@ func TestFetch(t *testing.T) {
 // t.Chdir(dir) changes working directory for the test and restores it after.
 ```
 
-**Benchmarks: always write `b.Loop()`.** `B.Loop` arrived in Go 1.24 and is the mandated benchmark form; since Go 1.26 it no longer inhibits inlining of the loop body, so migrating off `b.N` is unconditionally safe:
+**Benchmarks: `b.Loop()` on a Go 1.24+ floor.** `B.Loop` arrived in Go 1.24. For modules whose floor is Go 1.24 or later, write the loop as `for b.Loop()` — it runs the body the right number of times and keeps arguments, results, and variables assigned in the body alive, so no sink variable is needed. Since Go 1.26 it no longer inhibits inlining of the loop body, so on that floor migrating off `b.N` is unconditionally safe:
 
 ```go
 func BenchmarkParse(b *testing.B) {
@@ -546,7 +546,19 @@ func BenchmarkParse(b *testing.B) {
 }
 ```
 
-Arguments, results, and variables assigned inside a `for b.Loop()` body are still kept alive, so the compiler cannot optimize the benchmarked call away — but the loop condition must be written exactly as `b.Loop()`. Never emit the `for i := 0; i < b.N; i++` form, and never mix the two.
+Where `b.Loop()` is the form in use, the loop condition must be written exactly as `b.Loop()`, and it must not be mixed with a `b.N` counter in the same benchmark.
+
+Below Go 1.24, `b.Loop` does not exist and `for i := 0; i < b.N; i++` remains the required form. That form does not keep results alive, so assign the benchmarked call to a package-level sink:
+
+```go
+var sink string
+
+func BenchmarkParse(b *testing.B) {
+    for i := 0; i < b.N; i++ {
+        sink = Parse(input)
+    }
+}
+```
 
 **Test output files go in `t.ArtifactDir()` (Go 1.26).** `T.ArtifactDir`, `B.ArtifactDir`, and `F.ArtifactDir` return a per-test directory for files a test produces. With `go test -artifacts` that directory sits under `-outputdir` (or the current directory); without the flag it is a temporary directory removed when the test finishes, so writing there never pollutes the tree.
 
@@ -695,7 +707,7 @@ slices.Sorted(it)                 // iterator -> sorted slice
 slices.Values(s)                  // slice -> iterator
 ```
 
-Never write `sort.Slice(s, func(i, j int) bool { return s[i] < s[j] })` when `slices.Sort(s)` exists.
+For a module whose floor is Go 1.21 or later, never write `sort.Slice(s, func(i, j int) bool { return s[i] < s[j] })` when `slices.Sort(s)` exists. Below that floor `sort` remains the only choice.
 
 ### `maps` package (Go 1.21; iterators 1.23)
 
@@ -766,7 +778,7 @@ Prefer returning iterators over slices for large or lazily-produced sequences. D
 
 ### `math/rand/v2` (Go 1.22)
 
-Always import `math/rand/v2`, never the old `math/rand`. Auto-seeded, cleaner API:
+For modules whose floor is Go 1.22 or later, import `math/rand/v2`, never the old `math/rand`. Auto-seeded, cleaner API:
 
 ```go
 import "math/rand/v2"
@@ -774,6 +786,8 @@ import "math/rand/v2"
 rand.IntN(100)            // was rand.Intn — note the capital N
 rand.N(10 * time.Second)  // generic: random value in [0, n) for any integer type
 ```
+
+Below Go 1.22, `math/rand/v2` does not exist and `math/rand` remains the required import. Its top-level functions have been auto-seeded since Go 1.20, so a floor of 1.20 or 1.21 already gets the v2 behavior; below Go 1.20, seed the global source once at startup with `rand.Seed(time.Now().UnixNano())`, or build an explicit `rand.New(rand.NewSource(seed))`.
 
 The generic `N` is also a method since Go 1.27, so a seeded source no longer needs the package-level generic:
 
@@ -1119,12 +1133,14 @@ func Print(v any) { ... }
 
 ### Tool Dependencies in `go.mod` (Go 1.24)
 
-Never generate a `tools.go` file with blank imports. Track dev tools with the `tool` directive:
+For a module whose floor is Go 1.24 or later, never generate a `tools.go` file with blank imports — track dev tools with the `tool` directive:
 
 ```bash
 go get -tool golang.org/x/tools/cmd/stringer
 go tool stringer -type=Color   # run it
 ```
+
+Below Go 1.24, the `tool` directive does not exist and a `tools.go` file with blank imports remains the required form; keep it behind a `//go:build tools` constraint so it never enters the real build.
 
 ## Structured Logging with `log/slog` (Go 1.21)
 
