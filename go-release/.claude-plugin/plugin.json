@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "go-release",
   "displayName": "Go Release Engineering",
-  "description": "Release engineering for Go modules and applications — semantic versioning, breaking-change detection, deprecation conventions, go.mod hygiene, and binary distribution with GoReleaser.",
+  "description": "Use when cutting, planning, or reviewing a Go module or application release \u2014 version tags, semver, breaking-change detection, go.mod hygiene, deprecation, or binary distribution with GoReleaser. Use for release engineering of published Go modules and shipped binaries. Not for general Go code (use go), CLI construction (use cobra-viper), or pre-implementation spec review (use go-spec-reviewer).",
   "version": "1.1.0",
   "author": {
     "name": "Steve Francia",
@@ -11,5 +11,11 @@
   "homepage": "https://github.com/spf13/go-skills",
   "repository": "https://github.com/spf13/go-skills",
   "license": "MIT",
-  "keywords": ["go", "golang", "release", "semver", "goreleaser"]
+  "keywords": [
+    "go",
+    "golang",
+    "release",
+    "semver",
+    "goreleaser"
+  ]
 }

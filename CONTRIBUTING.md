@@ -98,6 +98,8 @@ description: >
 
 `templates/skill/SKILL.md` carries that example as a whole file. The six shipped skills predate this rule and none of them conforms: fix one where you are already editing it, and do not treat the current six as models.
 
+Every skill body MUST carry a `## When NOT to Use This Skill` section naming the siblings it defers to, so that overlapping triggers resolve without a priority table. A new skill MUST include one, and an edit to an existing skill MUST add one where it is missing.
+
 ## Versioning and release
 
 The catalog carries **one version across all six plugins**. They move together; there is no per-skill version.
