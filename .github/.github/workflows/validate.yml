@@ -1,0 +1,34 @@
+name: validate
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+      - name: Run hermetic catalog check
+        run: go run ./cmd/check
+
+  links:
+    name: links
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check links in README.md and CONTRIBUTING.md
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: --no-progress --accept "200..=299" README.md CONTRIBUTING.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
