@@ -333,11 +333,11 @@ seam is `fileflow.Flow`: `FindAvailableName` is a plain
 `func(baseName string) (string, error)`, so naming and conflict policy are
 unit-tested with no disk involved. The move itself is **integration-tested**
 against a real temporary directory (`t.TempDir()`) — fileflow's own suite does
-exactly this, and its cross-device cases live in a separate `//go:build linux`
-test that skips when `/dev/shm` and the temp dir land on the same device. Error
-*classification* is the only part faked, by handing a synthesized
-`*os.LinkError{Err: syscall.EXDEV}` to the unexported predicate; nothing pretends
-to be a filesystem.
+exactly this. Its cross-device paths cannot be faked that way, so they live in a
+separate `//go:build linux` test that stages the source under `/dev/shm` and
+skips when both paths land on the same device. Error *classification* is the one
+thing faked, by handing a synthesized `*os.LinkError{Err: syscall.EXDEV}` to the
+unexported predicate; nothing pretends to be a filesystem.
 
 Keep your own layer afero-injectable and fake the library at the seam you own:
 
