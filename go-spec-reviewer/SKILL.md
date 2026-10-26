@@ -63,7 +63,7 @@ Before reviewing, explore the existing codebase to understand conventions and sp
 
 ### Step 2b — Modern Language Features
 
-For specs introducing interfaces, generics, or function-typed plumbing, check whether Go 1.26/1.27 language features make the design simpler — `new(expr)`, self-referential type-parameter constraints, generic methods, generalized function type inference, struct-literal field selectors. If the spec carries a workaround where the language now has a direct form, flag it. Full list and version gates: `go` [references/version-index.md](../go/references/version-index.md) and [references/language.md](../go/references/language.md).
+For specs introducing interfaces, generics, or function-typed plumbing, check whether Go 1.26/1.27 language features make the design simpler — `new(expr)`, self-referential type-parameter constraints, generic methods, generalized function type inference, struct-literal field selectors. If the spec carries a workaround where the language now has a direct form, flag it. Full list and version gates: see the `go` skill — its version-index and language references.
 
 ### Step 3 — Cobra/Viper CLI Check (skip if not a CLI)
 

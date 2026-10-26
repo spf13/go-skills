@@ -21,7 +21,7 @@ const defersSection = "## When NOT to Use This Skill"
 // content instead of as an instruction.
 var placeholderRE = regexp.MustCompile(`\[[A-Z][A-Z0-9_ -]{2,}\]`)
 
-var referenceLinkRE = regexp.MustCompile(`(references/[^\\s)\\]"']+\.md)`)  // no ) and ]
+var referenceLinkRE = regexp.MustCompile(`(references/[^\s)\]"']+\.md)`)
 
 var fencedBlockRE = regexp.MustCompile("(?s)```.*?```")
 
