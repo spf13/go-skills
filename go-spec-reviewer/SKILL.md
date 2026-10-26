@@ -1,9 +1,10 @@
 ---
 name: go-spec-reviewer
 description: >
-  Use when reviewing a Go design document, spec, RFC, or PRD before implementation. Use for spec
-  completeness, idiom checks, and Cobra/Viper convention validation at the design stage. Not for
-  writing Go code (use go), building CLIs (use cobra-viper), or release decisions (use go-release).
+  Use when the user has a Go design doc, spec, RFC, or PRD to review before implementation — "is
+  this spec ready?", "review this before I build it", a planned feature in a Go codebase, or a
+  design that already reads as over-engineered. Not for writing or fixing Go code (use go), CLI
+  flag and config detail (use cobra-viper), or versioning a shipped API (use go-release).
 ---
 
 # Go Spec Reviewer

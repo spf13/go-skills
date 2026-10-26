@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "go",
   "displayName": "Idiomatic Go",
-  "description": "Use when writing, reviewing, or refactoring Go packages, error handling, interfaces, concurrency, or project layout. Use for Go idioms, package organization, testing patterns, and version-gated features. Not for CLI framework setup (use cobra-viper), release mechanics (use go-release), spec review (use go-spec-reviewer), desktop apps (use wails), or file operations on untrusted paths (use fileflow-pathologize). current through Go 1.27.",
+  "description": "Use when the user writes, reviews, debugs, or refactors Go code \u2014 a `.go` file, `go.mod`, a Go package or web service, \"golang\", a goroutine or interface design question, or an error-handling decision. Not for Cobra/Viper CLI wiring (use cobra-viper), cutting a release (use go-release), reviewing a design doc or spec (use go-spec-reviewer), a Wails desktop app (use wails), or cross-filesystem moves and untrusted path segments (use fileflow-pathologize). current through Go 1.27.",
   "version": "1.1.0",
   "author": {
     "name": "Steve Francia",

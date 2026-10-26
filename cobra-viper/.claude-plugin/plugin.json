@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "cobra-viper",
   "displayName": "CLI Architecture: Cobra & Viper",
-  "description": "Use when building or reviewing a Go CLI with Cobra and Viper \u2014 commands, flags, subcommands, configuration, environment binding, or in-memory CLI testing. Use for command-first architecture, Viper config patterns, and Cobra/Viper conventions. Not for general Go idioms (use go), release tagging (use go-release), or spec review (use go-spec-reviewer).",
+  "description": "Use when a Go CLI is built, reviewed, or refactored with Cobra and Viper \u2014 \"cobra\", \"viper\", a subcommand, a persistent or local flag, flag parsing, a viper config file, environment or flag binding, or a test that executes a `cobra.Command`. Not for general Go package design (use go), release tagging (use go-release), or pre-implementation spec review (use go-spec-reviewer).",
   "version": "1.1.0",
   "author": {
     "name": "Steve Francia",

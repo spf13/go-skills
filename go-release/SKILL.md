@@ -1,11 +1,11 @@
 ---
 name: go-release
 description: >
-  Use when cutting, planning, or reviewing a Go module or application release — version tags,
-  semver, breaking-change detection, go.mod hygiene, deprecation, or binary distribution with
-  GoReleaser. Use for release engineering of published Go modules and shipped binaries. Not for
-  general Go code (use go), CLI construction (use cobra-viper), or pre-implementation spec review
-  (use go-spec-reviewer).
+  Use when the user cuts, plans, or reviews a Go release — a version tag, semver, breaking-change
+  detection, a v2 module path, deprecating an API, go.mod hygiene before tagging, a changelog, or
+  shipping binaries with GoReleaser. Also use when an exported API change to a published module
+  needs a patch, minor, or major decision. Not for general Go code (use go), CLI construction (use
+  cobra-viper), or design-doc review (use go-spec-reviewer).
 ---
 
 # Go Release Engineering: Versions, Compatibility, and Distribution

@@ -1,10 +1,10 @@
 ---
 name: wails
 description: >
-  Use when building, reviewing, or debugging a Go desktop app with Wails — v2 (stable) or v3
-  (alpha) backend, frontend bindings, or webview integration. Use for Wails project setup, version
-  detection, and Go-to-JS bridging. Not for general Go logic (use go), CLIs (use cobra-viper), or
-  mobile/web frameworks.
+  Use when a Go desktop app, webview app, or GUI is built, reviewed, or debugged with Wails —
+  "wails", `wails.json`, a v2 (stable) or v3 (alpha) project, Go-to-frontend bindings, or a native
+  window that must not bundle Chromium. Not for general Go logic (use go), CLIs (use cobra-viper),
+  or web frameworks with no Go backend.
 ---
 
 # Wails: Desktop Apps in Go
