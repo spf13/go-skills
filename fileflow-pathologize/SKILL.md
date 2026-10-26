@@ -47,6 +47,8 @@ result lexically **under** the root. A part cannot inject an absolute path or
 `../` its way out. The root must come from configuration, never from the
 request.
 
+`os.Root` (Go 1.24+) is the stdlib alternative when the threat is *escape from a trusted directory* and the floor permits it: `root.OpenRoot(dir)` makes every later operation resolve from a directory handle, so neither `..` nor a symlink can escape. It does **not** sanitize names — `CON` or `a:b` inside the root still break on Windows. `pathologize.Join` is lexical and cross-OS: it yields a name valid everywhere before anything is opened. They compose — `Join` the name, then open it under an `os.Root` when you need both portability and symlink-proof containment. When only confinement matters, containment belongs to the stdlib.
+
 ```go
 // destRoot is configured; id and name are untrusted.
 dstDir := pathologize.Join(destRoot, "ig", id)
@@ -79,6 +81,10 @@ harmless single segment.
 - **different content** → an incrementing suffix is chosen (`photo-1.jpg`, up to
   100 candidates). Never an overwrite.
 
+## Testing: these operations are not afero-injectable
+
+`fileflow.Move`/`Copy`/`Rename` take path strings and call the OS directly — they are not afero-injectable. Unit-test naming via `Flow{FindAvailableName: ...}` (a plain `func(string)(string,error)`), integration-test moves against `t.TempDir()`. Wrap the library behind an interface you own (`type Mover interface { Move(src,dst string)(string,error) }`) and fake that.
+
 Prefer `Move` over `Rename`: `Rename` refuses cross-device moves. On Unix,
 `Rename` links without replace; on FAT or network mounts without hard links it
 falls back to `os.Rename` and no-overwrite becomes best-effort. `Copy` writes a
@@ -98,6 +104,8 @@ leaves no partial destination.
 | Joining untrusted input by hand | `pathologize.Join(root, parts...)` |
 | Using `CleanPath` on untrusted input | It is VALID, not SAFE — use `Join` |
 | Sanitizing the trusted root | `Join` takes the root verbatim |
+| Assuming `fileflow` is afero-injectable | It calls the OS directly — fake a `Mover` interface you own |
+| Expecting `os.Root` to sanitize names | `os.Root` confines opens but accepts `CON`/`a:b`; use `Join` for portability |
 | `os.MkdirAll` before a move/copy | These create parents by default |
 
 `filepath.Ext` remains the extension parser: `strings.CutLast` (Go 1.27) slices
