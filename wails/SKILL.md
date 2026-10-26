@@ -18,15 +18,21 @@ Wails builds native desktop applications with a Go backend and a web frontend re
 
 Before writing any code, determine the version from the project. Do not guess from the user's phrasing.
 
-| Signal | v2 | v3 |
-|--------|----|----|
-| go.mod import | `github.com/wailsapp/wails/v2` | `github.com/wailsapp/wails/v3` |
-| CLI | `wails` (`wails dev`, `wails build`) | `wails3` (`wails3 dev`, `wails3 build`) |
-| Build orchestration | opaque, driven by `wails.json` | `Taskfile.yml` (go-task), transparent |
-| Entry point | `wails.Run(&options.App{...})` | `application.New(application.Options{...})` |
-| Go→JS exposure | `Bind: []interface{}{app}` | `Services: []application.Service{...}` |
-| Runtime calls | `runtime.EventsEmit(ctx, ...)` with stored context | methods on `app` / `window` — no context threading |
-| Frontend imports | `wailsjs/go/main/App` | `frontend/bindings/<import-path>/<service>` |
+| Signal | Weight | v2 | v3 |
+|--------|--------|----|----|
+| `go.mod` require path | **authoritative** | `github.com/wailsapp/wails/v2` | `github.com/wailsapp/wails/v3` |
+| Entry point | strong | `wails.Run(&options.App{...})` | `application.New(application.Options{...})` |
+| Go→JS exposure | strong | `Bind: []interface{}{app}` | `Services: []application.Service{...}` |
+| Runtime calls | strong | `runtime.EventsEmit(ctx, ...)` with stored context | methods on `app` / `window` — no context threading |
+| Frontend imports | strong | `wailsjs/go/main/App` | `frontend/bindings/<import-path>/<service>` |
+| Build orchestration | weak | driven by `wails.json` | `Taskfile.yml` (go-task), transparent |
+| CLI name | context only | `wails dev`, `wails build` | `wails3 dev`, `wails3 build` |
+
+**`go.mod` is the only authoritative signal.** One `require github.com/wailsapp/wails/vN` line settles it — stop reading.
+
+**Tie-break.** When go.mod and the code disagree, go.mod wins and the code is the bug: a `/v3` module containing `wails.Run(&options.App{})` is a half-finished migration; a `/v2` module containing `application.New` is a paste from a v3 tutorial. Report the conflict instead of writing more code in either style.
+
+**No `go.mod`** (frontend-only checkout, vendored tree, before `go mod init`): fall back to the strong signals — entry point and frontend import paths. Ignore the weak ones: `Taskfile.yml` shows up in v2 projects too, and the CLI name records what the user typed, not what the repo is. In a `go.work` workspace, the deciding module is the one whose `main` imports Wails.
 
 **New project with no code yet:** default to **v2** if the user needs stability and zero churn; recommend **v3** for a new long-lived app if they accept alpha status — the architecture is better (multi-window, services, transparent builds) and it's the future. State the trade-off in one sentence and pin the exact alpha version in go.mod. Never present v3 as stable.
 
