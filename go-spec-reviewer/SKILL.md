@@ -113,11 +113,19 @@ Run this before approving a design that introduces interfaces, generics, or func
 | Data flow | Clear what enters and exits each function or step? |
 | Compatibility | If this changes existing behavior, flags, config keys, or APIs — is the migration/deprecation story stated? |
 | Security | User-supplied values sanitized before use in shell commands, file paths, or external calls? |
+| Observability | If this runs as a daemon, service, or scheduled job, does the spec name what an operator watches to tell working from stuck — the log fields on the key paths, the counter or health signal, the error text? A library or pure helper needs none; a long-running process with no stated way to observe it is an Issue |
+| Schema & data migration | If persisted state changes shape (DB schema, config keys, on-disk files, cache format), is the migration stated — forward step, default or backfill for existing data, and whether old and new versions can read each other's writes during a rolling swap? |
+| Rollout & rollback | Is there a way back if the new path misbehaves — flag to disable it, reversible migration, old code still reading new data? A one-way door with no rollback story is an Issue |
+| Failure modes | For each external dependency and I/O path, does the spec say what happens on failure — retry or fail fast, timeout value, what partial state is left behind, and what the caller receives (`%w`-wrapped error, sentinel, degraded result)? |
+| Performance targets | Where the spec claims a scale (requests/sec, item counts, batch or response sizes), is there a number, and does the design meet it — bounded concurrency, pagination, streaming instead of loading everything? "Should be fast" over an unbounded fan-out is an Issue |
+| Test-plan realism | Does the plan exercise the paths the spec itself calls hard — error branches, concurrency limits, the migration — or only the happy path? A plan that would still pass with the feature removed is an Issue |
 
 ### Calibration
 
 **Only flag issues that would cause real problems during implementation.**
 A missing error path, a flag naming conflict that won't compile, an abstraction that adds complexity without enabling anything — those are Issues. Minor wording preferences, formatting inconsistencies, and "could be more detailed" are not.
+
+Each Step 4 row beyond Security is conditional on the spec's own surface. No persisted state means no migration row applies; nothing long-running means no observability row applies; no scale claim means no performance row applies. Apply a row only where the spec touches that category, and flag it only when the design is silent **and** the implementor would have to invent the answer. Silence on a category the spec does not touch is not an Issue — it is the correct answer.
 
 Ambiguity is not automatically an Issue. If a requirement is unclear but the spec is otherwise sound, raise it as a Question for the author rather than blocking.
 
