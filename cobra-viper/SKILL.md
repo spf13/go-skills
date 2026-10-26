@@ -315,6 +315,16 @@ migrateCmd := &cobra.Command{
 
 ## Viper Configuration Patterns
 
+### 12-Factor Configuration
+
+Twelve-factor configuration ([factor III](https://12factor.net/config)) means one binary runs unchanged everywhere: **the environment supplies the values**, and the code supplies only defaults safe to publish. For a Cobra/Viper CLI that comes down to five rules:
+
+- **The environment is the contract.** A committed `config.yaml` is a developer convenience, never the source of an environment's settings. The same binary in staging and production differs only by environment variables.
+- **Precedence is fixed and documented.** Explicit `Set()` → bound flags → environment → config file → defaults (§3 below). An operator can always override a baked default without a rebuild.
+- **Names are derived, not hand-mapped.** One `v.SetEnvPrefix("MYAPP")` plus one `SetEnvKeyReplacer` gives every key exactly one predictable variable name (§4 below), so new options are configurable by environment on the day they land.
+- **Secrets never ship as defaults.** Register the key with `v.SetDefault("db.password", "")` so `Unmarshal` sees it, but let the value come from the environment or a secret manager. Keep secrets off flags — flags are visible in `ps` and shell history.
+- **`--help` documents the knobs.** Every non-secret value an operator can set by environment should also be settable by flag, so discovery never requires reading the source.
+
 ### 1. Prefer a Viper Instance over the Global Singleton
 
 `viper.New()` gives you an instance you can inject, isolate in tests, and run concurrently. The package-level `viper.Get*` singleton exists for convenience in small tools — the same trade-off as pflag's default FlagSet. For anything with tests or multiple commands, pass `*viper.Viper` explicitly (as the factory examples above do).

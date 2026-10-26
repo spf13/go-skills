@@ -112,7 +112,7 @@ CI asserts that all six versions are identical, that a commit tagged `vX.Y.Z` ca
 
 ## Go release currency
 
-A skill that teaches the Go language states the release it covers inside its `description` frontmatter prose, in the literal form:
+A skill that teaches the Go language may state the release it covers inside its `description` frontmatter prose, in the literal form:
 
 ```text
 current through Go X.Y
@@ -124,6 +124,8 @@ For example, `go/SKILL.md` carries `current through Go 1.27` in its description.
 - A skill that makes a claim must name the latest stable release. Being behind fails loudly, naming the skill, the claimed version, and the actual latest.
 - The claim moves only in the same change that adds the release's features. Do not bump it ahead of a release that has not shipped.
 - The claim must not disappear from a skill that carries one. The set of known claiming skills is recorded in the check itself (`CLAIMING_SKILLS` in `.github/scripts/check_go_release.py`), because the repository keeps no other record of it.
+
+**Only `go` claims, by decision.** The phrase asserts coverage of the whole language and standard-library surface, and only `go` enumerates that surface. `go-release`, `go-spec-reviewer`, `cobra-viper`, and `fileflow-pathologize` teach individual 1.26/1.27 features and state the floor where each one applies (`Go 1.26+`, `go 1.27 or later`), so each goes stale feature-by-feature rather than release-by-release — a coverage claim on them would be false the moment one skill missed a release's feature. They stay claim-free. A skill that later asserts release coverage adds itself to `CLAIMING_SKILLS` in the same change that adds the claim; never add the claim to a skill that only consumes individual features.
 
 `.github/workflows/go-release-check.yml` enforces this on the first of each month and on manual dispatch. It reads the latest stable release from `https://go.dev/dl/?mode=json` (entries with `"stable": true`; pre-releases are ignored), runs the check, and on failure opens an issue titled `Go release drift`, or comments on the existing open one instead — so a long-standing drift does not file a new issue every month.
 
