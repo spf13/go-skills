@@ -13,6 +13,8 @@ description: >
 
 Idiomatic patterns and best practices for building robust, configuration-driven command-line interfaces using Cobra and Viper.
 
+**Respect the module's `go` directive.** Read it in `go.mod` before recommending any version-gated feature named in this skill — a module declaring `go 1.21` must still compile on Go 1.21, whatever toolchain you happen to be running. If the floor is unknown, read `go.mod` or ask; never guess, and never assume the reader is on the latest release. Never raise the directive merely to reach a convenience API quoted here — a `go` directive is a floor imposed on every dependent of the module. Cobra and Viper API availability is a second axis: gate that on the versions pinned in `go.mod`, not on the language version. See the `go` skill's **Version Gating**.
+
 ## When to Activate
 
 - Writing a new CLI application in Go
@@ -121,7 +123,7 @@ Your core logic (the `engine` package) should have absolutely **zero** imports f
 
 ## Cobra Best Practices
 
-Flag parsing, context plumbing, and the command tree below do not change with the Go release — nothing in Go 1.26 or Go 1.27 alters how Cobra parses flags, how `cmd.Context()` flows into your code, or how commands are constructed and added. The version-gated guidance in this skill lives only in error inspection and config decoding, and is called out where it appears.
+Flag parsing, context plumbing, and the command tree below do not change with the Go release — nothing in Go 1.26 or Go 1.27 alters how Cobra parses flags, how `cmd.Context()` flows into your code, or how commands are constructed and added. The version-gated guidance in this skill lives only in error inspection and config decoding, and is called out where it appears; each of those recommendations is bounded by the module's `go` directive (see the floor-first rule above).
 
 ### 1. Use `RunE` for Native Error Handling
 
@@ -249,6 +251,42 @@ myapp completion powershell  | Out-File -Encoding utf8 "$PROFILE\myapp.ps1"
 ### 9. Print Through the Command, Not `fmt.Printf`
 
 Inside any command, write to `cmd.OutOrStdout()` / `cmd.ErrOrStderr()` (or use `cmd.Println`). Direct `fmt.Printf` bypasses `SetOut`/`SetErr`, making output impossible to capture in tests.
+
+### 10. Deprecate Commands and Flags — Never Just Delete Them
+
+Renaming a flag or folding a command into another is a breaking change for every script, CI job, and completion file in the wild. Cobra and pflag carry the deprecation machinery: the old surface keeps working while announcing its successor.
+
+```go
+// Deprecate a flag. It still parses; pflag prints the message on use and help
+// annotates the entry "(DEPRECATED: use --addr)".
+if err := serveCmd.Flags().MarkDeprecated("port", "use --addr"); err != nil {
+    return err
+}
+
+// Deprecate only the shorthand, keeping the long form alive.
+if err := serveCmd.Flags().MarkShorthandDeprecated("verbose", "use --verbose"); err != nil {
+    return err
+}
+
+// Hide a flag entirely: still accepted, absent from help and completion.
+// Use for debug or internal escape hatches, not for anything users were told to type.
+if err := serveCmd.Flags().MarkHidden("legacy-mode"); err != nil {
+    return err
+}
+
+// Deprecate a whole command. It still runs, prints its message via cmd.Printf
+// (so SetOut captures it), and drops out of help and completion listings.
+migrateCmd := &cobra.Command{
+    Use:        "migrate",
+    Deprecated: "use \"myapp db migrate\"",
+    RunE:       runMigrate,
+}
+```
+
+- `MarkDeprecated` and `MarkHidden` are `*pflag.FlagSet` methods reachable through `cmd.Flags()` / `cmd.PersistentFlags()`; both return an error for an unknown flag name, so don't discard it.
+- A deprecated command (`Deprecated` field) and a hidden command (`Hidden: true`) behave the same in listings — neither appears — but only the deprecated one announces itself when run.
+
+**Migration-path rule:** never deprecate without naming the replacement, and never remove on the same release that deprecated. The message is a migration instruction — `MarkDeprecated("port", "use --addr")`, not `MarkDeprecated("port", "")`; a bare "deprecated" is a bug report from your users, not guidance. Keep the old form parsing for at least one minor release after the replacement ships, then delete it in a major version, alongside the deprecation's own removal.
 
 ## Viper Configuration Patterns
 
@@ -404,6 +442,45 @@ v1 *behavior* is otherwise preserved, but error message text may differ — neve
 
 `v.Unmarshal` itself is unaffected by the switch: it maps fields with `mapstructure` tags, not `encoding/json`, so only the decode step changes.
 
+### 7. Writing Configuration Back
+
+Viper also serializes: whatever merged state it holds can be written to disk. Four methods, two axes — explicit path or discovered path, force or safe:
+
+| Method | Target | Existing file |
+|--------|--------|---------------|
+| `v.WriteConfig()` | the path `ReadInConfig` resolved or `SetConfigFile` named | overwritten |
+| `v.SafeWriteConfig()` | `configPaths[0]` + `configName.configType` (so `AddConfigPath`, `SetConfigName`, and `SetConfigType` must all be set first) | returns `viper.ConfigFileAlreadyExistsError` |
+| `v.WriteConfigAs(path)` | the given path | overwritten |
+| `v.SafeWriteConfigAs(path)` | the given path | returns `viper.ConfigFileAlreadyExistsError` |
+
+The safe variants open with `O_EXCL`, so the existence check and the write are one atomic syscall — no window where two concurrent runs both "create" the file.
+
+**First-run pitfall:** `WriteConfig` and `SafeWriteConfig` write to a file Viper has *found or been named*. On a first run there is no such file — your `initConfig` swallowed `ConfigFileNotFoundError` (correctly) — so a later `WriteConfig` fails with that same `ConfigFileNotFoundError`: the path was only ever discovered, never chosen. Nothing is written, and the failure surfaces far from the read. Resolve the path yourself and write it explicitly:
+
+```go
+func writeConfig(v *viper.Viper, path string) error {
+    v.SetConfigType("yaml") // required when path has no .yaml suffix
+    // Safe: an existing user file is never clobbered; "already exists" is the
+    // only acceptable error, and it means the user's config is intact.
+    if err := v.SafeWriteConfigAs(path); err != nil {
+        if _, exists := errors.AsType[viper.ConfigFileAlreadyExistsError](err); exists {
+            return nil // or report "already initialized" to the user
+        }
+        return fmt.Errorf("writing config to %s: %w", path, err)
+    }
+    return nil
+}
+```
+
+Use `v.WriteConfigAs(path)` instead only where overwriting is the intent — a `config set` or `config dump` command — and take the path from `v.ConfigFileUsed()` when the user passed `--config`, so the write lands where the read came from.
+
+Two limits to design around:
+
+- **Write-back is a re-encode, not a round-trip.** Viper marshals its settings map, so the user's comments, key order, and formatting are gone. Say so in the command's help, or write the file only when the user asked for it.
+- **Only learned keys are written.** Keys come from defaults, the config file, `Set` overrides, and bound flags/env. A value that arrived purely through `AutomaticEnv` on an unregistered key is invisible and will not be persisted — the same registration gap as §4.
+
+Never write config back as a side effect of a read path (`PersistentPreRunE`, a plain `serve` run): a typo in one flag should not rewrite a user's file. Make persistence an explicit command, and prefer `SafeWriteConfigAs` for first-run/`init` flows.
+
 ## Version Handling
 
 Cobra has a built-in version mechanism — prefer it over a hand-rolled subcommand:
@@ -484,6 +561,8 @@ func TestServeCommand(t *testing.T) {
 - **Executing a subcommand variable directly in tests**: `serverCmd.Execute()` runs the whole tree from the root, not just that command. Build fresh trees with a factory and drive them through `SetArgs`.
 - **Env-only values missing after `Unmarshal`**: `AutomaticEnv` doesn't register keys. `SetDefault` or `BindEnv` every key in your config struct (see the gotcha above).
 - **Assuming a JSON config that once parsed still parses**: since Go 1.27 the decoder rejects invalid UTF-8 and duplicate object names, so a config file can start failing at `ReadInConfig` on a toolchain upgrade alone (see §6 above).
+- **Deprecating without a migration path**: `MarkDeprecated(name, "")` and `Deprecated: "deprecated"` leave users with a warning and no replacement, and deleting in the same release strands every script. Name the successor and keep the old form parsing until the next major (Cobra §10).
+- **`WriteConfig` on a first run**: it writes to a path Viper *found*, so with no config file yet it returns the very `ConfigFileNotFoundError` your loader ignored. Resolve the path and use `SafeWriteConfigAs`/`WriteConfigAs` for `init`-style commands (Viper §7).
 - **Accessing Viper before config is loaded**: values are empty until your setup has run (`PersistentPreRunE` or `cobra.OnInitialize`). Don't read Viper in `init()` functions or `var` blocks.
 - **Forgetting `BindPFlags`**: flags are not automatically visible to Viper. Bind the command's flag set explicitly.
 - **Missing `SetEnvKeyReplacer`**: nested keys with dots (e.g., `serve.addr`) won't match `MYAPP_SERVE_ADDR` without a replacer.
