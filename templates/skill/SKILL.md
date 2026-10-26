@@ -22,6 +22,10 @@ description: >
 - A service's RSS climbs while heap profiles stay flat — a leak in goroutines, or memory retained off-heap.
 - A hot path allocates inside a loop and you want the escape analysis answer before restructuring it.
 
+## When NOT to Use This Skill
+
+For correctness bugs, wrong output, or a failing test use `go`. For CLI flag and command design use `cobra-viper`. For cutting a release or versioning the module use `go-release`. Name the skills this one defers to — a skill with no negative trigger claims prompts its siblings own.
+
 ## Rules
 
 - Measure before you change anything. `go test -bench . -benchmem` for the unit of work; `go tool pprof -http=:8080` over `-cpuprofile` / `-memprofile` output. A change with no before-and-after number is a guess.

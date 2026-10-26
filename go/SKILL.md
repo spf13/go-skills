@@ -5,7 +5,7 @@ description: >
   package or web service, "golang", a goroutine or interface design question, or an error-handling
   decision. Not for Cobra/Viper CLI wiring (use cobra-viper), cutting a release (use go-release),
   reviewing a design doc or spec (use go-spec-reviewer), a Wails desktop app (use wails), or
-  cross-filesystem moves and untrusted path segments (use fileflow-pathologize). current through
+  cross-filesystem moves and untrusted path segments (use fileflow-pathologize). Current through
   Go 1.27.
 ---
 

@@ -4,7 +4,7 @@ description: >
   Use when a Go desktop app, webview app, or GUI is built, reviewed, or debugged with Wails —
   "wails", `wails.json`, a v2 (stable) or v3 (alpha) project, Go-to-frontend bindings, or a native
   window that must not bundle Chromium. Not for general Go logic (use go), CLIs (use cobra-viper),
-  or web frameworks with no Go backend.
+  release packaging and versioning (use go-release), or web frameworks with no Go backend.
 ---
 
 # Wails: Desktop Apps in Go
@@ -41,7 +41,7 @@ Before writing any code, determine the version from the project. Do not guess fr
 
 ## When NOT to Use This Skill
 
-For general Go logic use `go`. For CLI apps use `cobra-viper`. For file operations use `fileflow-pathologize`. This skill is for desktop/webview apps only.
+For general Go logic use `go`. For CLI apps use `cobra-viper`. For file operations use `fileflow-pathologize`. For packaging and versioning the shipped desktop binary use `go-release`. This skill is for desktop/webview apps only.
 
 ## Wails v2 (Stable)
 

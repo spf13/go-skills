@@ -4,7 +4,8 @@ description: >
   Use when a Go CLI is built, reviewed, or refactored with Cobra and Viper — "cobra", "viper", a
   subcommand, a persistent or local flag, flag parsing, a viper config file, environment or flag
   binding, or a test that executes a `cobra.Command`. Not for general Go package design (use go),
-  release tagging (use go-release), or pre-implementation spec review (use go-spec-reviewer).
+  shipping a CLI binary (use go-release), or pre-implementation spec review (use
+  go-spec-reviewer).
 ---
 
 # Go CLI Architecture: Cobra & Viper
@@ -24,7 +25,7 @@ Idiomatic patterns and best practices for building robust, configuration-driven 
 
 ## When NOT to Use This Skill
 
-For general Go package design, testing, and idioms use `go`. For release mechanics use `go-release`. For spec review use `go-spec-reviewer`.
+For general Go package design, testing, and idioms use `go`. For release mechanics — tagging, versioning, and shipping a CLI binary — use `go-release`. For spec review use `go-spec-reviewer`.
 
 ## Core Philosophy
 

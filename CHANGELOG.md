@@ -10,6 +10,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - `cobra-viper` — a **12-factor configuration** section (factor III, config in the environment): the environment supplies the values, the binary supplies only publishable defaults, precedence runs explicit `Set()` → bound flags → environment → config file → defaults, environment names are derived from one prefix plus a replacer, secrets never ship as defaults, and every non-secret knob is reachable by flag so `--help` documents it.
 
+### Changed
+
+- Routing — every one of the six descriptions is now trigger-only and closes by naming the sibling it defers to, and every skill body carries a `## When NOT to Use This Skill` section. `go` no longer claims every `.go` file, `go.mod`, CLI, or web service: Cobra/Viper CLI wiring, release mechanics, pre-implementation spec review, Wails desktop apps, and cross-filesystem moves with untrusted path segments all defer outward. "Release a CLI binary" now resolves to `go-release` from `cobra-viper` and `wails` as well as from `go`. `templates/skill/SKILL.md` carries the same section, and `CONTRIBUTING.md` § SKILL.md requires it for any new skill.
+
 ### Fixed
 
 - `CHANGELOG.md` — the 1.1.0 summary claimed every Go skill states the release it covers. Only `go` does: `CLAIMING_SKILLS` in `.github/scripts/check_go_release.py` is `{"go"}`, and neither `go-release`, `go-spec-reviewer`, `cobra-viper`, `fileflow-pathologize`, nor `wails` carries a `current through Go X.Y` claim. The summary now says which skill claims, and `CONTRIBUTING.md` records why the rest do not.
