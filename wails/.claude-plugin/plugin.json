@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "wails",
   "displayName": "Desktop Apps: Wails",
-  "description": "Building native desktop applications in Go with Wails v2 (stable) and v3 (alpha). CRITICAL: v2 and v3 have incompatible APIs that LLMs constantly blend — this skill detects the version and follows only that version's patterns.",
+  "description": "Use when building, reviewing, or debugging a Go desktop app with Wails \u2014 v2 (stable) or v3 (alpha) backend, frontend bindings, or webview integration. Use for Wails project setup, version detection, and Go-to-JS bridging. Not for general Go logic (use go), CLIs (use cobra-viper), or mobile/web frameworks.",
   "version": "1.1.0",
   "author": {
     "name": "Steve Francia",
@@ -11,5 +11,11 @@
   "homepage": "https://github.com/spf13/go-skills",
   "repository": "https://github.com/spf13/go-skills",
   "license": "MIT",
-  "keywords": ["go", "wails", "desktop", "gui", "webview"]
+  "keywords": [
+    "go",
+    "wails",
+    "desktop",
+    "gui",
+    "webview"
+  ]
 }

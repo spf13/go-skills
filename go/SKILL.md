@@ -1,11 +1,11 @@
 ---
 name: go
 description: >
-  Expert Go programming skill authored by spf13 (former Go team lead, author of Cobra, Viper, Hugo, Afero).
-  Covers idiomatic Go — package design, error handling, interfaces, concurrency, testing, and
-  project layout, current through Go 1.27. Use whenever Go code is written, reviewed, debugged, or
-  refactored — any .go file, go.mod, CLI tool, or web service, and whenever the user mentions
-  Go or golang, even if they don't ask for "idiomatic" code.
+  Use when writing, reviewing, or refactoring Go packages, error handling, interfaces, concurrency,
+  or project layout. Use for Go idioms, package organization, testing patterns, and version-gated
+  features. Not for CLI framework setup (use cobra-viper), release mechanics (use go-release), spec
+  review (use go-spec-reviewer), desktop apps (use wails), or file operations on untrusted paths
+  (use fileflow-pathologize). Current through Go 1.27.
 ---
 
 # Idiomatic Go: The Go Way
@@ -20,6 +20,10 @@ Idiomatic Go patterns and best practices for building robust, efficient, and mai
 - Designing Go packages, modules, or APIs
 - Choosing between stdlib and third-party libraries
 - Any question about Go project structure, error handling, concurrency, or testing
+
+## When NOT to Use This Skill
+
+This skill covers general Go idioms and project design. For CLI framework patterns use `cobra-viper`; for release, versioning, and distribution use `go-release`; for pre-implementation spec review use `go-spec-reviewer`; for desktop/webview apps use `wails`; for file moves and untrusted path sanitization use `fileflow-pathologize`.
 
 ## Version Gating: Check the Module's Floor First
 

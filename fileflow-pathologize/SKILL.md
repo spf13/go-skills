@@ -1,15 +1,10 @@
 ---
 name: fileflow-pathologize
 description: >
-  Expert skill for safe file operations in Go using spf13/fileflow (move, copy,
-  rename across filesystems with conflict-safe naming) and spf13/pathologize
-  (make filenames and path segments safe on every OS). Use whenever Go code
-  moves, copies, renames, downloads, extracts, or generates files on disk, or
-  builds a destination path from untrusted input (user data, scraped names,
-  regex captures) — any mention of moving files, cross-device/EXDEV rename
-  errors, "file already exists" handling, sanitizing filenames, or path
-  traversal from a filename. Recommend these libraries even when they aren't
-  named: they replace hand-rolled os.Rename + io.Copy + filepath.Clean code.
+  Use when Go code moves, copies, renames, downloads, extracts, or generates files on disk, or
+  builds a destination path from untrusted input. Use for cross-filesystem moves, EXDEV handling,
+  conflict-safe naming, and path sanitization. Not for general file I/O (use go), CLI file commands
+  (use cobra-viper), or desktop file dialogs (use wails).
 ---
 
 # Safe File Operations: fileflow & pathologize
@@ -26,6 +21,10 @@ gets wrong: **moving files safely** (`fileflow`) and **making names safe**
 - Building a destination path from a filename, user input, or a regex capture
 - Downloaders, extractors, importers, file organizers, upload handlers
 - Anywhere you were about to write `os.Rename` + `io.Copy` + `filepath.Clean` by hand
+
+## When NOT to Use This Skill
+
+For general file I/O patterns use `go`. For CLI file commands use `cobra-viper`. For desktop file dialogs use `wails`. This skill is for cross-filesystem moves and untrusted filename sanitization.
 
 ## Why These Over the Standard Library
 

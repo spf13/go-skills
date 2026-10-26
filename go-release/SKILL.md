@@ -1,13 +1,11 @@
 ---
 name: go-release
 description: >
-  Expert skill for releasing Go modules and applications: semantic versioning, API compatibility,
-  breaking-change detection, deprecation, go.mod hygiene, tagging, and binary distribution with
-  GoReleaser. Use whenever a Go release is being cut, planned, or reviewed — any mention of
-  version tags, semver, breaking changes, v2 modules, deprecating an API, editing go.mod for
-  release, changelogs, or shipping binaries. Also use when a change to a *published* module's
-  exported API needs a versioning decision — patch, minor, or major — for an artifact people
-  already download.
+  Use when cutting, planning, or reviewing a Go module or application release — version tags,
+  semver, breaking-change detection, go.mod hygiene, deprecation, or binary distribution with
+  GoReleaser. Use for release engineering of published Go modules and shipped binaries. Not for
+  general Go code (use go), CLI construction (use cobra-viper), or pre-implementation spec review
+  (use go-spec-reviewer).
 ---
 
 # Go Release Engineering: Versions, Compatibility, and Distribution
@@ -28,6 +26,10 @@ This skill does not cover releasing the skill catalog this file ships in. That r
 - Editing `go.mod` in a way that affects dependents (go directive, dependencies)
 - Setting up binary distribution (GoReleaser, ldflags, multi-platform builds)
 - Recovering from a bad release
+
+## When NOT to Use This Skill
+
+For writing Go packages use `go`. For CLI patterns use `cobra-viper`. For spec review use `go-spec-reviewer`. For desktop packaging use `wails` with `go-release` for versioning.
 
 ## The Compatibility Promise
 
