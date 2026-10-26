@@ -46,26 +46,7 @@ Before reviewing, explore the existing codebase to understand conventions and sp
 - If this is a Cobra CLI, check how commands are constructed. Factory functions (`NewRootCmd()`) are the standard. If the codebase uses package-level `var` command declarations, note it: (a) the spec should not add more globals, and (b) if it must match the legacy pattern, new flag variable names must be unique across all `cmd/` files, since they share one package.
 - Check how commands are registered (in the root factory or `cmd/root.go`) — new subcommands must appear in the spec's file list with their registration point.
 - Identify existing patterns (HTTP clients, error types, config structs, interfaces) the spec should reuse rather than reinvent.
-- Note the Go version in `go.mod` — the module's own `go` directive and the toolchain. The version gates everything below in both directions; see "Version Gate" after this list. Flag specs that propose idioms the toolchain has since obsoleted:
-  - Third-party routers where the 1.22 `net/http.ServeMux` patterns suffice.
-  - `interface{}` where `any` applies (1.18).
-  - Manual loops that `slices`/`maps` handle (1.21).
-  - Hand-rolled worker pools where `sync.WaitGroup.Go` applies (1.25).
-  - Hand-rolled `v := expr; p := &v` where `new(expr)` applies (1.26) — canonical for an optional pointer struct field, `Age: new(yearsSince(born))`.
-  - `errors.As` where `errors.AsType[T]` applies (1.26) — generic, type-safe, and faster.
-  - `LastIndex`-based splitting where `strings.CutLast` or `bytes.CutLast` applies (1.27) — a slice around the last occurrence of a separator.
-  - `b.N` benchmark loops. `B.Loop` itself is Go 1.24; the change is 1.26, where it stopped inhibiting inlining of the loop body. Since then migrating `b.N` to `B.Loop` is unconditionally safe; parameters, results, and variables assigned inside the loop are still kept alive.
-  - Third-party UUID libraries where the stdlib `uuid` package applies (1.27).
-  - `encoding/json` v1 defaults where the spec targets `go 1.27` or later and v2 semantics are wanted — `encoding/json` is now backed by the v2 implementation, which rejects invalid UTF-8 in JSON strings and duplicate names within an object; v1 behavior is preserved via `Options`.
-
-#### Version Gate — Check Both Directions
-
-The `go` directive in `go.mod` is the language version in force for the module, not the toolchain installed on the machine. Check it before making any availability claim, in both directions:
-
-- **Do not recommend what the module cannot compile.** Before calling an idiom available, confirm the module's `go` directive is at least the version that introduced it, and state that version when recommending the feature. `errors.AsType` and `new(expr)` require `go 1.26` or later; `strings.CutLast`, `bytes.CutLast`, and the stdlib `uuid` package require `go 1.27` or later.
-- **Do not flag as fresh what the module already has.** An idiom is not obsolete if the module's `go` directive cannot reach its replacement. A `go 1.24` module is entitled to hand-rolled `b.N` loops and `v := expr; &v`; flagging them is a false positive of the same kind, in the mirror direction.
-- **Mechanical backstop.** Go 1.27's `go test` runs the `stdversion` vet check by default. It reports standard library symbols too new for the `go` version in force in the referring file, as determined by the `go` directive in `go.mod` and the build tags on the file. Recommend it as enforcement for this rule. It does not cover language features or third-party replacements; those remain the reviewer's job.
-- **Compatibility trap.** A spec must not raise its module's `go` directive merely to reach a convenience helper. A library's `go` directive is a floor imposed on every dependent: raising it forces every dependent onto a newer toolchain in order to build the library at all. Require the spec to justify a bump by what it enables, or to stay where it is and use the older idiom deliberately.
+- Note the Go version in `go.mod` — the module's `go` directive and the toolchain. The `go` skill owns the rule and the data ("Version Gating: Check the Module's Floor First", its Version → Feature Index, and the `stdversion` enforcement) — apply it in both directions, flagging idioms the module's floor cannot compile *and* idioms that remain correct at that floor. Two obligations follow at spec level: name the introducing version whenever the review recommends a gated feature, and require the spec to justify any raise of its module's `go` directive by what it enables, since that floor binds every dependent of the module.
 
 ### Step 2 — Go Philosophy Check
 
