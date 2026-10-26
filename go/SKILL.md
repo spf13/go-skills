@@ -170,6 +170,10 @@ Start flat. If you are building a microservice or a simple tool, put everything 
 
 One binary means `main.go` at the module root. Reach for `cmd/<name>/` only when the module ships more than one binary — one directory per binary, nothing else in there.
 
+Note the two different things spelled `cmd/`. `cmd/<name>/` is a binary entrypoint: its own `package main`, holding a `main.go` and nothing else. A bare `cmd/` is an ordinary library package and never holds `main.go`.
+
+**One exception, owned by `cobra-viper`:** a Cobra CLI with subcommands uses a single bare `cmd/` as its command-routing layer even when it ships one binary, with `main.go` at the root as a shim. Commands are the CLI's public surface, not a second binary. That skill states the rule and the layout; this one governs every other module.
+
 ### 2. The Proper Use of `internal/`
 
 The `internal/` directory has a specific compiler enforcement: it prevents other modules from importing the code inside it.

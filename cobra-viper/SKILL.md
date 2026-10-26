@@ -44,6 +44,8 @@ Construct the command tree with factory functions (`NewRootCmd()`), not package-
 
 Command routing and business logic should live in standard, logically named packages. The `cmd/` package handles the CLI surface area, while other top-level packages handle the domain logic.
 
+**Layout rule.** The general rule is owned by the `go` skill ("Package Organization: Flat by Default"): one binary means `main.go` at the module root, and `cmd/<name>/` only appears when the module ships more than one binary. This skill owns the single exception, and it applies to every CLI here. A CLI with subcommands puts its commands in one bare `cmd/` package even when it ships a single binary. The exception exists because the `cmd/` directory is keyed to the CLI surface, not the binary count: each command is a separate entry path with its own flags, help text, and Viper bindings, and keeping them at the root would put the CLI's public surface in the same package as the domain logic this skill insists on decoupling. One binary therefore means exactly one `cmd/`, and it is a library package holding the command factories — `main.go` stays at the root as the minimal shim shown below. A CLI with no subcommands earns neither: flags and one action go in `main.go` at the root.
+
 ```
 mycli/
 ├── main.go               # Minimal entry point: strictly calls cmd.Execute()
