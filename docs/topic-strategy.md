@@ -51,7 +51,7 @@ Chosen as the first new skill: highest value in the coverage map, and the only t
 
 > Use when Go code is slow, allocates too much, leaks memory or goroutines, or must be measured: `pprof` CPU/heap/allocation/block/mutex/goroutine profiles, escape analysis, `go test -benchmem`, `benchstat` comparisons, `go tool trace`, and production `runtime/metrics`. Not for correctness bugs, data races, or goroutine lifetimes as a design question (use `go`); not for release versioning or `go.mod` hygiene (use `go-release`); not for CLI flag or exit-code design (use `cobra-viper`).
 
-Carries `current through Go 1.27` because it teaches versioned runtime features (the `goroutineleak` profile). That means the skill is added to `CLAIMING_SKILLS` in `.github/scripts/check_go_release.py` in the same change — an unregistered claim is not currency-checked, and a registered claim may never lose the phrase.
+Carries `current through Go 1.27` because it teaches versioned runtime features (the `goroutineleak` profile). That means the skill is added to `claimingSkills` in `internal/check/release.go` in the same change — an unregistered claim is not currency-checked, and a registered claim may never lose the phrase.
 
 ### Sections, and what each one owns
 

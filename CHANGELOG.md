@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- Repository — the three Python CI scripts (`.github/scripts/{check_invariants,check_go_release,validate_manifests}.py`, plus a `pip install jsonschema`) are replaced by one hermetic Go checker: `cmd/check` over `internal/check`. It needs no network — the schemastore marketplace and plugin schemas are vendored in `internal/check/schemas/` — and it adds rules the scripts never had: the 500-line `SKILL.md` budget, the `## When NOT to Use This Skill` section, unresolved `[PLACEHOLDER]` tokens, `references/` link resolution, and compiling complete standard-library Go samples. `.roborev.toml` drops from 307 lines of empty defaults to a one-line comment.
+
 ### Added
 
 - `cobra-viper` — a **12-factor configuration** section (factor III, config in the environment): the environment supplies the values, the binary supplies only publishable defaults, precedence runs explicit `Set()` → bound flags → environment → config file → defaults, environment names are derived from one prefix plus a replacer, secrets never ship as defaults, and every non-secret knob is reachable by flag so `--help` documents it.
