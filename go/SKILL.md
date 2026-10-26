@@ -154,6 +154,13 @@ Before writing code, stop at the first rung that holds. Climb **after** you unde
 
 Rungs 3 and 4 name version-gated features (`sync.OnceValue` arrives in Go 1.21; `os.Root` and the `tool` directive in 1.24), so establish the module's floor before recommending one — see **Version Gating**.
 
+**Containment: `os.Root` or `pathologize.Join`?** They answer different questions, so pick by threat rather than habit.
+
+- `os.Root` (Go 1.24+) is kernel-enforced confinement: `root.OpenRoot(dir)` makes every later open, create, and rename resolve from a directory handle, so a symlink or an absolute path cannot escape the tree. This is the stdlib rung when the threat is *escape from a trusted directory* and the floor permits it.
+- `pathologize.Join(root, parts...)` is lexical, pre-open sanitization: each untrusted part is stripped of separators and reserved/illegal characters, so the result stays under `root` **and** is a valid name on every OS (Windows `CON`/`NUL`, `:` `*` `?`). Containment here belongs to the library when portability is the problem, or when the floor is below 1.24, or when you only need a string to hand to some other API.
+
+Neither substitutes for the other: `Join` knows nothing about symlinks, and `os.Root` is not sanitization — it will happily create `CON` or `a:b` inside its root. On a 1.24+ floor with untrusted names, do both: `Join` the path, then open it under a `*os.Root`. See the `fileflow-pathologize` skill.
+
 **Never cut:** validation at a trust boundary, error handling that prevents data loss, security, cleanup, and anything explicitly requested. In Go that means the error is still checked and wrapped, the `defer` that releases the resource stays, the mutex that makes the map safe stays, and a non-trivial branch or parser still leaves one runnable test behind (see **Testing Patterns**). Laziness shortens the solution, never the reading, and never the checks.
 
 **Fix the root cause, not the reported path.** A bug report names a symptom. Grep every caller of the function before touching it: one guard where all callers route through is a smaller diff than a guard at each call site, and it fixes the callers the ticket never mentioned.
@@ -518,6 +525,8 @@ func NewFileProcessor(fs afero.Fs) *FileProcessor {
 ```
 
 In tests, inject `afero.NewMemMapFs()` to completely eliminate disk I/O and prevent flaky, slow tests.
+
+This rule governs **your** code's filesystem access. It does not reach inside a library that owns the syscalls: `fileflow.Move`/`Copy` take real path strings and use `MoveFileEx` (Windows) or link-and-remove/`os.Rename` (Unix), none of which a memory FS can model — so it is not afero-injectable, and its file operations are integration-tested instead. Do not try to fake a library's syscalls; wrap the library behind an interface you own (`type Mover interface { Move(src, dst string) (string, error) }`), fake that in unit tests, and keep one integration test on a real `t.TempDir()`. The seam is discussed on both sides: see `fileflow-pathologize` for the library's testability contract.
 
 ### 6. `cmp` over DeepEqual
 

@@ -31,10 +31,22 @@ gets wrong: **moving files safely** (`fileflow`) and **making names safe**
 
 `os.Rename` fails across filesystems (`EXDEV`) and silently overwrites the
 destination. `filepath.Clean` normalizes `..` but does **not** remove characters
-that are illegal on other operating systems, and does nothing about reserved
+that is illegal on other operating systems, and does nothing about reserved
 names (`CON`, `NUL`). And `path/filepath` validates against the *host* OS only —
 a name that is fine on Linux can break the moment the file syncs to a Windows
 client. These libraries close all of these gaps and compose cleanly.
+
+`os.Root` (Go 1.24+) is the one stdlib feature that does contain untrusted
+paths: `root.OpenRoot(dir)` resolves every later operation from a directory
+handle, so neither `..` nor a symlink can escape the tree. When your only job is
+*confining opens inside a trusted directory* and the module's floor is 1.24 or
+later, containment belongs to the stdlib — use `os.Root` and skip these
+libraries. What it does **not** do is sanitize names: it will create `CON` or
+`a:b` inside its root, and those paths break on Windows. `pathologize.Join` is
+lexical and cross-OS: it yields a name valid on every modern OS, contained under
+the root, before anything is opened. They compose — `Join` the name, then open
+it under an `os.Root` when you need both portability and symlink-proof
+containment.
 
 ## The Core Pattern: Join a trusted root with untrusted parts, then move
 
@@ -301,7 +313,51 @@ Untrusted input must never decide where a file lands. Two safe options:
    captured value can't introduce a new path level.
 
 Do **not** rely on `CleanPath` for this — it preserves `..` and absolute paths
-by design.
+by design. And when the requirement is only that real opens stay inside a
+trusted directory rather than that names be portable, containment belongs to the
+stdlib: on a Go 1.24+ floor use `os.Root` and let the kernel enforce it, since
+lexical `Join` cannot see a symlink planted between sanitize and open.
+
+## Testing: these operations are not afero-injectable
+
+`fileflow.Move`, `Copy`, and `Rename` take real path strings and call the OS
+directly — `MoveFileEx` on Windows, link-and-remove or `os.Rename` on Unix, plus
+`fsync`, mode, and device checks. There is no `afero.Fs` to inject and no
+intention to add one: those primitives do not exist in `afero.NewMemMapFs`, so a
+memory FS would test the fake instead of the no-replace and cross-device
+behavior that is the entire point of the package.
+
+So the Go skill's afero rule (`go/SKILL.md`, **Filesystem Abstraction**) governs
+*your* code's filesystem access, not this library's syscalls. Here the injectable
+seam is `fileflow.Flow`: `FindAvailableName` is a plain
+`func(baseName string) (string, error)`, so naming and conflict policy are
+unit-tested with no disk involved. The move itself is **integration-tested**
+against a real temporary directory (`t.TempDir()`) — fileflow's own suite does
+exactly this, and its cross-device cases live in a separate `//go:build linux`
+test that skips when `/dev/shm` and the temp dir land on the same device. Error
+*classification* is the only part faked, by handing a synthesized
+`*os.LinkError{Err: syscall.EXDEV}` to the unexported predicate; nothing pretends
+to be a filesystem.
+
+Keep your own layer afero-injectable and fake the library at the seam you own:
+
+```go
+type Mover interface { Move(src, dst string) (string, error) }
+
+type Importer struct {
+    m        Mover
+    destRoot string
+}
+
+func (i *Importer) Import(src, id string) (string, error) {
+    return i.m.Move(src, pathologize.Join(i.destRoot, "ig", id))
+}
+```
+
+A fake `Mover` covers the importer's logic (root choice, error wrapping) in
+memory; one integration test exercises the real `fileflow.Move`. `pathologize`
+is the easy case — `Join`, `Clean`, and `CleanPath` are pure string functions, so
+ordinary table tests cover them with no filesystem at all.
 
 ## Common Mistakes
 
@@ -316,6 +372,8 @@ by design.
 | Building a dest from untrusted input by hand | `pathologize.Join(root, parts...)` — sanitized + contained |
 | Using `CleanPath` on untrusted input | `CleanPath` makes paths VALID, not SAFE — use `Join` |
 | Sanitizing the trusted root too | `Join` takes root verbatim; only parts are untrusted |
+| Assuming `fileflow` is afero-injectable | It calls the OS directly — fake a `Mover` interface you own; integration-test the real move |
+| Expecting `os.Root` to sanitize names | `os.Root` confines opens but accepts `CON`/`a:b`; use `pathologize.Join` when names must be portable |
 | Manual `os.MkdirAll` before an operation | `Move`/`Rename`/`Copy` create parents by default |
 
 ## Path splitting and extension parsing
