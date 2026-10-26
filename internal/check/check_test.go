@@ -160,6 +160,20 @@ func TestSkillContentRules(t *testing.T) {
 		assertIssue(t, f.check(t, Options{}), "demo/SKILL.md", "maximum is 500")
 	})
 
+	t.Run("token budget", func(t *testing.T) {
+		f := newFixture(t)
+		line := strings.Repeat("word ", 20) + "\n"
+		body := skillBody(demoDescription) + strings.Repeat(line, 200)
+		f.write(t, "demo/SKILL.md", body)
+		assertIssue(t, f.check(t, Options{}), "demo/SKILL.md", "tokens; maximum is 5000")
+	})
+
+	t.Run("sandbox path rejected", func(t *testing.T) {
+		f := newFixture(t)
+		f.write(t, "demo/SKILL.md", skillBody(demoDescription)+"\nRead /mnt/skills/user/go/SKILL.md first.\n")
+		assertIssue(t, f.check(t, Options{}), "demo/SKILL.md", "machine-specific sandbox path")
+	})
+
 	t.Run("negative trigger section", func(t *testing.T) {
 		f := newFixture(t)
 		f.write(t, "demo/SKILL.md", strings.Replace(skillBody(demoDescription), defersSection, "## Related Skills", 1))

@@ -11,6 +11,7 @@ import (
 // file has to fit in one context load, and anything longer belongs in
 // `references/`, loaded only when the task needs it.
 const maxSkillLines = 500
+const maxSkillTokens = 5000
 
 // defersSection is the heading that resolves overlapping triggers without a
 // priority table.
@@ -47,6 +48,11 @@ func (c *checker) skillContent() error {
 		c.checkPlaceholders(rel, s.name, src)
 		c.checkReferences(rel, s.name, s.dir, src)
 		c.checkTokensAndSandbox(rel, s.name, src)
+		for _, refPath := range markdownFiles(s.dir)[1:] {
+			if refRaw, ok := c.read(refPath); ok {
+				c.checkConflictMarkers(c.rel(refPath), s.name, string(refRaw))
+			}
+		}
 	}
 	return nil
 }
@@ -62,18 +68,20 @@ func (c *checker) checkBudget(path, name, src string) {
 }
 
 func (c *checker) checkTokensAndSandbox(path, name, src string) {
-	// Estimated tokens: ~4 chars per token; budget is advisory until all skills fit
-	tokens := len(src) / 4
-	if tokens > 7000 {
-		c.fail(path, 0, "%q: SKILL.md is ~%d tokens; estimated budget is 7000", name, tokens)
+	tokens := len(strings.Fields(src)) * 4 / 3
+	if tokens > maxSkillTokens {
+		c.fail(path, 0, "%q: SKILL.md is ~%d tokens; maximum is %d — move detail into references/", name, tokens, maxSkillTokens)
 	}
-	// Machine-specific sandbox paths outside code fences
 	proseOnly := fencedBlockRE.ReplaceAllString(src, "")
 	if strings.Contains(proseOnly, "/mnt/skills/") {
 		c.fail(path, 0, "%q: SKILL.md contains a machine-specific sandbox path", name)
 	}
+	c.checkConflictMarkers(path, name, src)
+}
+
+func (c *checker) checkConflictMarkers(path, name, src string) {
 	if strings.Contains(src, "<<<<<<<") || strings.Contains(src, ">>>>>>>") {
-		c.fail(path, 0, "%q: SKILL.md contains unresolved merge conflict markers", name)
+		c.fail(path, 0, "%q: contains unresolved merge conflict markers", name)
 	}
 }
 
