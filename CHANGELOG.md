@@ -4,9 +4,22 @@ All notable changes to this catalog are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this catalog adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). One version covers all six plugins; they move together.
 
+## [Unreleased]
+
+### Added
+
+- `cobra-viper` — a **12-factor configuration** section (factor III, config in the environment): the environment supplies the values, the binary supplies only publishable defaults, precedence runs explicit `Set()` → bound flags → environment → config file → defaults, environment names are derived from one prefix plus a replacer, secrets never ship as defaults, and every non-secret knob is reachable by flag so `--help` documents it.
+
+### Fixed
+
+- `CHANGELOG.md` — the 1.1.0 summary claimed every Go skill states the release it covers. Only `go` does: `CLAIMING_SKILLS` in `.github/scripts/check_go_release.py` is `{"go"}`, and neither `go-release`, `go-spec-reviewer`, `cobra-viper`, `fileflow-pathologize`, nor `wails` carries a `current through Go X.Y` claim. The summary now says which skill claims, and `CONTRIBUTING.md` records why the rest do not.
+- `README.md`, `CHANGELOG.md` — "12-factor configuration" in the `cobra-viper` description is now backed by a section in `cobra-viper/SKILL.md` instead of being asserted only by the catalog prose.
+
+[Unreleased]: https://github.com/spf13/go-skills/compare/v1.1.0...HEAD
+
 ## [1.1.0] - 2026-09-28
 
-The catalog now covers **Go 1.26 and Go 1.27**, and every Go skill states the release it covers and gates its advice on the module's own `go` directive.
+The catalog now covers **Go 1.26 and Go 1.27**. Only the `go` skill states the release it covers (`current through Go 1.27`); the version-specific guidance elsewhere states its own floor (`Go 1.26+`, `go 1.27 or later`) where it applies.
 
 ### Added
 
