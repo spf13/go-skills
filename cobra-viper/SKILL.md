@@ -34,7 +34,14 @@ Configuration should be environment-aware and unified. Viper acts as the single 
 
 ### Commands Are Built, Not Declared
 
-Construct the command tree with factory functions (`NewRootCmd()`), not package-level `var` declarations. Globals make commands untestable (state leaks between test runs) and unusable as a library. The only global in a well-built CLI is `main.go` calling the factory.
+Construct the command tree with factory functions (`NewRootCmd()`), not package-level `var` declarations. Globals make commands untestable (state leaks between test runs) and unusable as a library.
+
+**The globals boundary — there is exactly one, and it does not scale with project size.** Package-level state is legitimate in exactly two cases:
+
+1. **Build-time constants** stamped by `-ldflags`: `var version, commit, date string` (see *Version Handling*).
+2. **`main.go` itself**, which holds nothing but `run()` and `os.Exit(run())` — no commands, no flags, no Viper.
+
+A `*cobra.Command`, a flag, or a `*viper.Viper` declared at package level is always wrong: in a two-command tool as much as in a forty-command one. This rule has no small-tool exception — a tool small enough that factories feel like overhead is also small enough that a single in-process test pays for them, and a tool that will never be tested still has to be readable, which package-level wiring is not.
 
 ## CLI Package Organization
 
@@ -48,7 +55,7 @@ Command routing and business logic should live in standard, logically named pack
 
 ```
 mycli/
-├── main.go               # Minimal entry point: strictly calls cmd.Execute()
+├── main.go               # Minimal entry point: run() + os.Exit(run())
 ├── cmd/                  # The Cobra routing layer
 │   ├── root.go           # Root command factory, global flags, Viper setup
 │   ├── serve.go          # The 'serve' subcommand
@@ -60,33 +67,49 @@ mycli/
 └── go.sum
 ```
 
-`main.go` is intentionally minimal:
+`main.go` is intentionally minimal, and it is the **only** place `os.Exit` appears:
 
 ```go
 package main
 
 import (
+    "context"
+    "fmt"
     "os"
+    "os/signal"
+    "syscall"
 
     "github.com/spf13/myapp/cmd"
 )
 
 func main() {
-    if err := cmd.Execute(); err != nil {
-        os.Exit(1)
+    os.Exit(run())
+}
+
+// run owns every defer. os.Exit skips deferred calls, so main must not exit
+// until run has returned and stop() has already fired.
+func run() int {
+    ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+    defer stop()
+
+    if err := cmd.NewRootCmd().ExecuteContext(ctx); err != nil {
+        fmt.Fprintln(os.Stderr, err) // SilenceErrors: the error is printed exactly once, here
+        return 1
     }
+    return 0
 }
 ```
+
+Two rules follow from this shape:
+
+- **`os.Exit` is an accepted top-level exception, scoped to `main` after `run()` returns.** It is never called from a command, a `RunE`, a library package, or any function that holds a live `defer` — `os.Exit` unwinds nothing, so a deferred `stop()`, `Close()`, or `Flush()` would be silently dropped. The `main` → `run()` split is what makes the single `os.Exit` safe: by the time it runs, every defer in `run` has already executed.
+- **There is exactly one execution path.** No `cmd.Execute()` wrapper: a second entry point that calls `NewRootCmd().Execute()` bypasses the signal context above, and two entry points drift. Callers who need the bare command tree (tests, embedding) call `NewRootCmd()` and drive it themselves.
 
 ### The Factory Pattern (`cmd/root.go`)
 
 Each command file exports a constructor. The root factory creates its own Viper instance and wires everything together — no package-level state:
 
 ```go
-func Execute() error {
-    return NewRootCmd().Execute()
-}
-
 func NewRootCmd() *cobra.Command {
     v := viper.New()
 
@@ -109,7 +132,7 @@ func NewRootCmd() *cobra.Command {
 }
 ```
 
-**When globals are acceptable:** a small, single-purpose tool that will never be tested in-process or embedded. The moment you write a test, switch to factories.
+**No package-level escape hatch here.** The boundary is stated once, under *Commands Are Built, Not Declared*: build-time version strings and `main.go` — nothing else. A factory that feels heavy for a small tool is still the factory to write.
 
 ### Decouple Commands from Execution
 
