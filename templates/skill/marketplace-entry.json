@@ -1,6 +1,6 @@
 {
-  "name": "your-skill",
-  "source": "./your-skill",
+  "name": "go-profiling",
+  "source": "./go-profiling",
   "category": "development",
-  "tags": ["go"]
+  "tags": ["go", "profiling", "performance"]
 }

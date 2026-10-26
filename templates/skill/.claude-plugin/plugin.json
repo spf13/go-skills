@@ -1,8 +1,8 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
-  "name": "your-skill",
-  "displayName": "Your Skill",
-  "description": "One or two sentences describing what this skill provides.",
+  "name": "go-profiling",
+  "displayName": "Go Profiling",
+  "description": "Profiling and performance work on Go programs: pprof, benchmarks, escape analysis, and allocation reduction.",
   "version": "0.0.0",
   "author": {
     "name": "Steve Francia",
@@ -11,5 +11,5 @@
   "homepage": "https://github.com/spf13/go-skills",
   "repository": "https://github.com/spf13/go-skills",
   "license": "MIT",
-  "keywords": ["go"]
+  "keywords": ["go", "profiling", "performance"]
 }

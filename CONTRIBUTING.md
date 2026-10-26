@@ -6,7 +6,7 @@ This repository publishes six [Agent Skills](https://docs.claude.com/en/docs/cla
 - a fix or expansion to an existing skill's `SKILL.md`,
 - a change to the catalog metadata.
 
-Every rule below is enforced by CI. Contribution shape is checked on every push and pull request by `.github/workflows/validate.yml`; the Go release currency rule runs on a schedule in `.github/workflows/go-release-check.yml`. If a rule is not in this document, CI does not check it; if it is in this document, CI fails when you break it.
+Every structural rule below is enforced by CI. Contribution shape is checked on every push and pull request by `.github/workflows/validate.yml`; the Go release currency rule runs on a schedule in `.github/workflows/go-release-check.yml`. If a rule is not in this document, CI does not check it; if it is in this document, CI fails when you break it — with one exception, the description standard in §SKILL.md, which is judged in review because no check reads prose yet.
 
 ## Repository shape
 
@@ -57,7 +57,46 @@ An entry's `tags` must equal its `plugin.json` `keywords` as a set, with no dupl
 Frontmatter requires `name` and `description`.
 
 - `name` must equal the skill directory name and `plugin.json.name`.
-- `description` is what drives model-invoked triggering. It must name the concrete contexts, file types, and phrases a user would actually say, and be at least 40 characters long. Past that bar, quality is judged in review — every current skill is a worked example.
+- `description` is what drives model-invoked triggering, and it is the only part of a skill a model reads before deciding whether to load the rest. CI checks that it exists and is at least 40 characters long; its shape, wording, and ceiling below are judged in review.
+
+### Description standard
+
+Two authoring standards are in circulation, and they disagree about what a description is for:
+
+- **`writing-skills`** (Anthropic-style authoring): third person, trigger-only, opens `Use when…`, and MUST NOT summarize the workflow.
+- **`skill-optimizer`** (Agent Skills spec): `definition + capability + trigger`, capped at 1024 characters / ~150 routing tokens, with no coercive activation language and no marketing framing.
+
+**This catalog adopts the trigger-only opening, under the `skill-optimizer` budget.** The disagreement is the opening. A description is a routing signal matched against a prompt, so its first words have to be the condition that selects the skill. The leading definition `skill-optimizer` asks for spends that budget restating what the body's `# <name>` heading already says, and in practice becomes the workflow summary both standards ban. Capability and coverage live in the body, which the model reads after it has already routed. The ceiling and the bans apply unchanged on top.
+
+A description MUST:
+
+- Open with `Use when` or `Use for`. Nothing precedes it — no noun phrase, no self-description, no credential.
+- Name the concrete contexts, file types, APIs, and phrases a user would actually type: `.go`, `go.mod`, `wails.json`, "cut a release", "is this spec ready?". A condition a model cannot match against a prompt is not a trigger.
+- Stay under 1024 characters, and aim for ~150 routing tokens — roughly 600 characters. The ceiling is the hard cap; the target is what keeps the trigger legible.
+- Stay in the third person and describe the user's task, not the skill: "Use when the user asks to…", never "I teach…" or "you should…".
+
+A description MAY:
+
+- Close with one clause that narrows its scope or defers to a sibling skill.
+- Carry the `current through Go X.Y` claim §Go release currency requires — as a trailing clause, never as the opening or as the bulk of the text.
+
+A description MUST NOT:
+
+- Use coercive activation: "even if they don't ask", "recommend them", "Recommend these libraries even when they aren't named", "always use this skill", "CRITICAL:", "you must use this skill". An invocation instruction is not a trigger, and a model obeys one on prompts that have nothing to do with the skill.
+- Summarize the workflow or enumerate coverage: "Covers idiomatic Go — package design, error handling, interfaces, concurrency, testing", "detect the version and follow only that version's section". A model that reads the summary acts on the summary, so the description becomes a second, unmaintained copy of the body — the failure both standards name.
+- Use author-credential framing: "Expert skill for…", "Expert Go programming skill authored by spf13 (former Go team lead, author of Cobra…)", "authored by". Who wrote a skill never decides whether it applies; the condition does.
+- Use marketing framing: "the definitive…", "the best…", "best-in-class". This is a routing string, not a landing page.
+
+A conforming description:
+
+```yaml
+description: >
+  Use when a Go program is slow, allocation-heavy, or suspected of leaking — pprof CPU, heap,
+  block, mutex and goroutine profiles, benchmark comparison with -benchmem, escape analysis via
+  -gcflags=-m, and cutting allocation counts. Not for correctness bugs; use the go skill.
+```
+
+`templates/skill/SKILL.md` carries that example as a whole file. The six shipped skills predate this rule and none of them conforms: fix one where you are already editing it, and do not treat the current six as models.
 
 ## Versioning and release
 
@@ -79,7 +118,7 @@ A skill that teaches the Go language states the release it covers inside its `de
 current through Go X.Y
 ```
 
-For example, `go/SKILL.md` reads `… project layout, current through Go 1.27. Use whenever …`. The check extracts exactly that phrase from the `description` value — the regular expression `current through Go (\d+\.\d+)`, matched against the parsed frontmatter (folded `>` scalars included) — and compares the major/minor line against the latest stable Go release. No extra frontmatter key is added; the phrase lives in the existing prose.
+For example, `go/SKILL.md` carries `current through Go 1.27` in its description. §SKILL.md requires that claim to sit in a trailing clause, after the triggers — the `description` opens with `Use when`, so the claim never occupies the routing position. The check extracts exactly that phrase from the `description` value — the regular expression `current through Go (\d+\.\d+)`, matched against the parsed frontmatter (folded `>` scalars included) — and compares the major/minor line against the latest stable Go release. No extra frontmatter key is added; the phrase lives in the existing prose.
 
 - A skill with no claim passes; the claim is optional.
 - A skill that makes a claim must name the latest stable release. Being behind fails loudly, naming the skill, the claimed version, and the actual latest.
@@ -108,9 +147,9 @@ lychee README.md CONTRIBUTING.md
 
 ## Adding a new skill
 
-1. Copy the scaffold: `cp -r templates/skill <your-skill>`.
-2. Fill in `SKILL.md` — frontmatter `name`/`description` first, then the guidance.
-3. Fill in `.claude-plugin/plugin.json`. Set `version` to the catalog's current version — the scaffold ships `0.0.0` as a placeholder, and CI rejects any version behind the latest `v*` tag, so a copied-and-ignored placeholder fails loudly.
-4. Copy `templates/skill/marketplace-entry.json` into `.claude-plugin/marketplace.json`, replacing every placeholder. Keep the four keys.
+1. Copy the scaffold: `cp -r templates/skill <your-skill>`. The scaffold is a worked example named `go-profiling`; every fact in it belongs to that example, not to your skill.
+2. Rewrite `SKILL.md` — frontmatter `name`/`description` first, then the guidance. The description must follow §SKILL.md; the example's description shows the shape to keep.
+3. Fill in `.claude-plugin/plugin.json`: `name`, `displayName`, `description` (display copy for the marketplace, not a trigger), `keywords`, and `version` set to the catalog's current version — the scaffold ships `0.0.0` as a placeholder, and CI rejects any version behind the latest `v*` tag, so a copied-and-ignored placeholder fails loudly.
+4. Copy `templates/skill/marketplace-entry.json` into `.claude-plugin/marketplace.json`, replacing the example's `name`, `source`, `category`, and `tags`. Keep the four keys.
 5. Add a row to the skills table in `README.md`.
 6. Run the checks above.
