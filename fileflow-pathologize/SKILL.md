@@ -78,6 +78,7 @@ defaults; use a `Flow` when behavior must be configured per instance.
 func Move(src, dst string) (string, error)          // rename if same FS, else copy+delete
 func Rename(src, dst string) (string, error)         // same-FS only; fails on cross-device
 func Copy(src, dst string) (string, error)           // atomic copy; returns final path
+func Replace(src, dst string) (string, error)        // overwrite exactly dst, no suffixing
 func Exists(path string) bool
 func Equal(file1, file2 string) (bool, error)        // byte-for-byte comparison
 ```
@@ -86,6 +87,11 @@ func Equal(file1, file2 string) (bool, error)        // byte-for-byte comparison
 matters because of conflict handling below. Prefer `Move` over `Rename` unless
 you specifically *want* to fail across filesystems. `Exists` reports only an
 accessible regular file; it returns false for directories.
+
+`Replace` is the deliberate exception to conflict handling: it publishes the
+source at exactly `dst`, overwriting different content, and returns `dst`. Reach
+for it when a `-1` suffix would leave readers on stale content (a config or
+index file). The source must be a regular file.
 
 All three operations create missing destination directories by default.
 `CopyWithPaths` no longer exists because `Copy` itself now creates them.
@@ -179,6 +185,101 @@ The 100-candidate limit is internal and not configurable.
   no-replace logic. A failed copy does not expose a partial destination or
   leave its temporary file behind.
 
+### Symlinks: followed or preserved
+
+The four operations do not treat symlinks uniformly, and `pathologize` never
+sees one at all:
+
+| Case | `Rename` / same-FS `Move` | cross-FS `Move` / `Copy` | `Replace` |
+|---|---|---|---|
+| `src` is a symlink | the **link itself** moves; the target is untouched | **dereferenced**: a regular file holding the target's content lands at the destination, then the link is removed | rejected with `fs.ErrInvalid` (source must be a regular file) |
+| `dst` names a symlink | `Exists`/`Equal` follow it: identical target → `ErrSameFile` or a suffix; different target → a suffix, so the link is never written through | same as left | the **link is replaced, not followed** |
+
+- `sameFile` compares `os.Stat` results, so a symlink and its target count as
+  one file: you get `ErrSameFile` instead of a copy or rename that would
+  destroy the only reference to the target.
+- A dangling `dst` symlink: `Exists` uses `os.Stat` and reports false, so the
+  name reads as absent and the link is replaced.
+- Because a same-FS rename preserves the link while a copy dereferences,
+  `Move` changes the *artefact type* depending on where `dst` lives. If a
+  symlink must stay a symlink, call `Rename` (accepting cross-device failure)
+  or recreate the link after the move.
+- `pathologize` is lexical: `Clean`, `CleanPath`, and `Join` match bytes, not
+  inodes, so they guarantee nothing about links. A symlink *inside* the trusted
+  root can still point outside it — `Join`'s containment is prefix containment
+  of the sanitized string, not of the resolved path. When a symlink escape
+  matters at open time, confine with `os.Root` (see the `go` skill) and treat
+  `Join` as naming hygiene.
+
+### Verifying a destructive move (there is no dry run)
+
+`Move`, `Rename`, and `Replace` delete `src`. fileflow offers no dry-run mode
+and no undo, so the returned path is the only evidence of where the content
+went — and on failure it is the empty string. Rules that hold up in review:
+
+1. **Never retry a failed destructive call blind.** Re-inspect first: a retry
+   against a source that is already gone fails differently, and a retry against
+   a source that survived a partial move suffixes the content to `photo-2.jpg`.
+2. **Read the error shape.** `err == nil` → content is at the returned path.
+   `*ErrFailedRemovingOriginal` → the returned path is valid *and* `src` still
+   exists: the content arrived, the delete did not. Any other error → the
+   returned path is `""` and nothing was published.
+3. **Verify before the delete when identity matters.** `Move` leaves no window
+   between copy and source removal, so for backups, imports, and uploads do the
+   copy yourself and compare first:
+
+   ```go
+   final, err := fileflow.Copy(src, dst)
+   if err != nil {
+       return err
+   }
+   if same, err := fileflow.Equal(src, final); err != nil || !same {
+       return fmt.Errorf("verify %s against %s: same=%v: %w", final, src, same, err)
+   }
+   return os.Remove(src)   // destruction is safe only after the comparison
+   ```
+
+4. **Trust the returned path, never `dst`.** `final` may carry a conflict
+   suffix; it is the value your database row and log line must record. Storing
+   `dst` records a file that may not exist.
+5. **`Replace` is verified by identity of the path plus presence.** It returns
+   exactly `dst` (or an error), so assert `final == dst`, then stat it; there is
+   no suffix to reconcile.
+
+### Failure modes: ENOSPC, quota, and partial failure
+
+Destination-volume exhaustion is the failure that actually reaches production,
+and fileflow's staging decides what survives it:
+
+- **`Copy` and cross-FS `Move` under ENOSPC**: content is staged in
+  `os.CreateTemp(dir, ".fileflow-*")` inside the destination directory. A short
+  write fails with `copying file content: %w`, the temp file is removed, the
+  destination is untouched, and `src` survives. The copy error is returned
+  as-is — only the same-FS rename path wraps in `*ErrFailedMovingFile`.
+- **Quota exhaustion** (project/user quota rather than a full disk) behaves the
+  same way but can also fail `creating destination directory:` or the temp-file
+  creation itself, leaving a partially created directory tree behind:
+  directories are never rolled back.
+- **Same-FS `Rename`/`Move` allocate no file content**, so they survive ENOSPC
+  except during directory creation. Metadata exhaustion (running out of inodes)
+  is the exception and surfaces as a normal error.
+- **Source-removal failure is a distinct, non-retryable state**: `Move` returns
+  a valid destination together with `*ErrFailedRemovingOriginal` (EBUSY, EPERM,
+  a read-only mount). The content is committed; retry the *delete*, never the
+  move.
+- **Orphaned staging files**: cleanup paths ignore their own `os.Remove` error,
+  so a wedged filesystem can leave `.fileflow-*` files in the destination
+  directory. Sweep them rather than assuming none exist.
+- **Durability ceiling**: the staged copy is `Sync`ed before the rename, but the
+  destination *directory* is never fsynced, so a crash can lose the directory
+  entry after the data was written. `Replace` makes the same promise. Sync and
+  close your own staged source before publishing when power-loss durability
+  matters.
+- **Not preserved across a copy or cross-FS move**: ownership, group,
+  timestamps, ACLs, xattrs, sparse regions, and hard-link identity. Only the
+  permission mode is carried over, so re-apply `os.Chown`/`os.Chtimes` when the
+  destination must match, and never assume the inode identity survived.
+
 ### Errors (`errors.Is` for sentinels, `errors.As`/`errors.AsType` for structured errors)
 
 ```go
@@ -239,6 +340,34 @@ Invalid UTF-8 becomes U+FFFD; leading/trailing whitespace and trailing dots are
 trimmed; names are capped at 255 bytes; reserved device names are defused
 (`CON` → `CON_`). `Clean` is idempotent and never returns an empty string (it
 falls back to `"file"`).
+
+### Long paths on Windows (the reserved-name sibling limit)
+
+The 255-byte cap is **per segment**; nothing here bounds the assembled path,
+and Windows still enforces `MAX_PATH` (260 characters) on APIs nobody told
+otherwise. Three 100-byte segments are individually legal and jointly unusable.
+What actually happens:
+
+- Go's `os` package rewrites any path of 248 bytes or more into the
+  extended-length form (`\\?\C:\...`, or `\\?\UNC\server\share\...`) before
+  calling the OS, so `MkdirAll`, `CreateTemp`, and `os.Rename` keep working
+  past the limit — and nothing is rewritten at all in a process the OS already
+  treats as long-path aware.
+- `\\?\` turns off the OS's own normalization: `.`, `..`, forward slashes, and
+  trailing dots become literal. `CleanPath` always emits `/`, so never route a
+  path that already carries the extended prefix through it; keep native
+  separators.
+- `fileflow` does not add the prefix itself, and its Windows rename calls
+  `MoveFileEx` directly instead of going through `os`, so it skips that
+  rewrite. A destination past the limit therefore fails at the publish step
+  (`*ErrFailedMovingFile`) on a non-long-path-aware process, even though
+  directory creation and temp-file staging just succeeded.
+- Relative long paths are the fragile case, since expansion depends on the
+  working directory: resolve with `filepath.Abs` before a long operation, and
+  shorten the segments you control (hashed prefixes, fixed-width IDs) rather
+  than truncating user names. The 255-**byte** cap is also stricter than
+  Windows' 255 UTF-16 units — a name of CJK characters is cut at roughly a
+  third of the character count the OS would allow.
 
 ### Join — the safe way to build a destination (use this by default)
 
@@ -317,6 +446,10 @@ by design.
 | Using `CleanPath` on untrusted input | `CleanPath` makes paths VALID, not SAFE — use `Join` |
 | Sanitizing the trusted root too | `Join` takes root verbatim; only parts are untrusted |
 | Manual `os.MkdirAll` before an operation | `Move`/`Rename`/`Copy` create parents by default |
+| Retrying a failed destructive call blind | Inspect first: `*ErrFailedRemovingOriginal` means content landed — retry the delete, not the move |
+| Logging `dst` as the destination | Record the returned path; it may carry a conflict suffix |
+| Assuming a moved symlink stays a symlink | A cross-FS `Move`/`Copy` dereferences it into a regular file |
+| Assuming a long path works everywhere | Segments are capped at 255 bytes but the Windows total is still 260 — see the long-path note |
 
 ## Path splitting and extension parsing
 
