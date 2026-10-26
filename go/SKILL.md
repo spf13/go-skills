@@ -24,7 +24,7 @@ Idiomatic Go patterns and best practices for building robust, efficient, and mai
 
 ## When NOT to Use This Skill
 
-This skill covers general Go idioms and project design. For CLI framework patterns use `cobra-viper`; for release, versioning, and distribution use `go-release`; for pre-implementation spec review use `go-spec-reviewer`; for desktop/webview apps use `wails`; for file moves and untrusted path sanitization use `fileflow-pathologize`.
+This skill covers general Go idioms and project design. For CLI framework patterns use `cobra-viper`; for release, versioning, and distribution use `go-release`; for pre-implementation spec review use `go-spec-reviewer`; for desktop/webview apps use `wails`; for cross-filesystem file moves and untrusted path sanitization use `fileflow-pathologize`.
 
 ## Version Gating: Check the Module's Floor First
 
