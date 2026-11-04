@@ -2,7 +2,7 @@
 
 All notable changes to this catalog are documented here.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this catalog adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). One version covers all six plugins; they move together.
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this catalog adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). One version covers every plugin; they move together.
 
 ## [Unreleased]
 
@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- `afero` — a new skill for testable filesystem code with `spf13/afero`: choosing between `afero.Fs`, `fs.FS` and `os.Root`; injecting the filesystem; the four ways `MemMapFs` differs from a disk (it creates missing parents, ignores permission bits, keeps rooted and relative keys apart, and is a weak `fs.FS`); `ReadOnlyFs`, `CopyOnWriteFs` as a free dry run, and why `BasePathFs` is not a security boundary. Every behavior was verified against afero v1.15.0 on Go 1.27.
 - Repository — `.github/scripts/check_skill_code.py` and a `skill code` CI job: every Go fence in every skill must parse with the latest stable Go, and every standard-library version claim must match the toolchain's own `stdversion` manifest.
 - Repository — `.github/claims/`, a stdlib-only Go test suite that pins behavioral claims (JSON v1 vs v2 strictness, unbuffered timer channels) so a Go release that changes them turns CI red.
 

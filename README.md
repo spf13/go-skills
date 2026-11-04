@@ -1,6 +1,6 @@
 # Go Skills for Claude Code
 
-Six [Agent Skills](https://docs.claude.com/en/docs/claude-code/skills) for Go work, published as a Claude Code marketplace: idiomatic Go, CLI architecture, design-spec review, release engineering, desktop apps, and file operations. Written by [spf13](https://github.com/spf13) — creator of Cobra, Viper, and Hugo, and former Go team lead at Google, where he co-designed Go modules.
+Seven [Agent Skills](https://docs.claude.com/en/docs/claude-code/skills) for Go work, published as a Claude Code marketplace: idiomatic Go, CLI architecture, design-spec review, release engineering, desktop apps, file operations, and testable filesystems. Written by [spf13](https://github.com/spf13) — creator of Cobra, Viper, and Hugo, and former Go team lead at Google, where he co-designed Go modules.
 
 ## Skills
 
@@ -12,6 +12,7 @@ Six [Agent Skills](https://docs.claude.com/en/docs/claude-code/skills) for Go wo
 | [`go-release`](./go-release/SKILL.md) | Release engineering — semantic-versioning promises, mechanical breaking-change detection, `Deprecated:` conventions, `go.mod` hygiene, and shipping binaries with GoReleaser. | `/plugin install go-release@go-skills` |
 | [`wails`](./wails/SKILL.md) | Desktop apps in Go with Wails v2 (stable) and v3 (alpha) — including how to tell the two apart, since their APIs are incompatible and easily blended by mistake. | `/plugin install wails@go-skills` |
 | [`fileflow-pathologize`](./fileflow-pathologize/SKILL.md) | Safe file operations with `spf13/fileflow` and `spf13/pathologize` — cross-filesystem move, copy, and rename with conflict-safe naming, plus OS-safe path sanitization. | `/plugin install fileflow-pathologize@go-skills` |
+| [`afero`](./afero/SKILL.md) | Testable filesystem code with `spf13/afero` — inject `afero.Fs`, test in memory, layer read-only and copy-on-write filesystems, and know the four ways `MemMapFs` differs from a real disk. | `/plugin install afero@go-skills` |
 
 ## Install
 

@@ -1,6 +1,6 @@
 # Contributing
 
-This repository publishes six [Agent Skills](https://docs.claude.com/en/docs/claude-code/skills) for Go as a Claude Code marketplace. A contribution is usually one of:
+This repository publishes [Agent Skills](https://docs.claude.com/en/docs/claude-code/skills) for Go as a Claude Code marketplace. A contribution is usually one of:
 
 - a new skill,
 - a fix or expansion to an existing skill's `SKILL.md`,
@@ -20,7 +20,7 @@ One directory per skill at the repository root. Each directory is a single-skill
 ```
 
 - `SKILL.md` sits at the plugin root, not inside `.claude-plugin/`. Claude Code takes the invocation name from the frontmatter `name`.
-- The catalog-level `.claude-plugin/marketplace.json` lists every skill. The six skill directories and the six marketplace entries must correspond one to one — no orphan directories, no entries pointing at missing directories.
+- The catalog-level `.claude-plugin/marketplace.json` lists every skill. The skill directories and the marketplace entries must correspond one to one — no orphan directories, no entries pointing at missing directories.
 - `templates/` is scaffold, not a skill; it is excluded from the correspondence check.
 - The skills table in `README.md` lists every skill exactly once, each row linking to `./<skill>/SKILL.md`.
 
@@ -45,7 +45,7 @@ Do not repeat `description`, `version`, `author`, `homepage`, `repository`, `lic
 | Category | Use when the skill teaches | Currently |
 | --- | --- | --- |
 | `languages` | the Go language itself | `go`, `cobra-viper` |
-| `development` | an engineering workflow or practice | `go-spec-reviewer`, `go-release`, `fileflow-pathologize` |
+| `development` | an engineering workflow or practice | `go-spec-reviewer`, `go-release`, `fileflow-pathologize`, `afero` |
 | `frameworks` | a third-party framework or runtime | `wails` |
 
 ## Tags
@@ -70,7 +70,7 @@ Frontmatter requires `name` and `description`.
 
 ## Versioning and release
 
-The catalog carries **one version across all six plugins**. They move together; there is no per-skill version.
+The catalog carries **one version across all plugins**. They move together; there is no per-skill version.
 
 To cut a release:
 
@@ -78,7 +78,7 @@ To cut a release:
 2. Add a matching entry to `CHANGELOG.md`.
 3. Commit, then create an annotated tag `vX.Y.Z` on that commit.
 
-CI asserts that all six versions are identical, that a commit tagged `vX.Y.Z` carries version `X.Y.Z`, that the version is never behind the latest existing tag, and that `CHANGELOG.md` has an entry for it. A version-bump pull request therefore passes before the tag exists; the tagged commit is what must match exactly.
+CI asserts that all plugin versions are identical, that a commit tagged `vX.Y.Z` carries version `X.Y.Z`, that the version is never behind the latest existing tag, and that `CHANGELOG.md` has an entry for it. A version-bump pull request therefore passes before the tag exists; the tagged commit is what must match exactly.
 
 ## Go release currency
 

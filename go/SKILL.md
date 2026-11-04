@@ -514,7 +514,7 @@ func NewFileProcessor(fs afero.Fs) *FileProcessor {
 }
 ```
 
-In tests, inject `afero.NewMemMapFs()` to completely eliminate disk I/O and prevent flaky, slow tests.
+In tests, inject `afero.NewMemMapFs()` to completely eliminate disk I/O and prevent flaky, slow tests. The `afero` skill covers where `MemMapFs` differs from a real disk and when read-only code should accept `fs.FS` instead.
 
 ### 6. `cmp` over DeepEqual
 
