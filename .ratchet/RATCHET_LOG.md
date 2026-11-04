@@ -120,3 +120,11 @@ is a fresh subagent that never wrote the change.
 | Module-level mutable error state | 2 | 2 | 0 |
 | Private host/path mentions in tracked files | 15+ (AGENTS.md) | same | 0 |
 | CI jobs / steps | 3 / 4 | 4 / 6 | 4 / 7 |
+
+## Sweep 3 (rock: additional skills + refinement)
+
+### S3 · completeness — KEPT — 78→84 — 6e76008 (+ wording fix below)
+- Critique: the catalog had no skill for spf13/afero although the go skill names it the standard (go/SKILL.md:500-516) with one line of advice. A Hugo skill was the first choice; the sandbox classifier denied building/running a Hugo binary, so it is backlogged rather than written unverified.
+- Change: afero/SKILL.md + plugin.json + marketplace entry (development), README row, CONTRIBUTING category, CHANGELOG; "six" removed where a count was not needed; go skill cross-reference.
+- Verified: implementer scratch module (afero v1.15.0, go1.27.3, -race): 11 tests covering every claim and both code examples; all repo checks + `claude plugin validate ./afero` green.
+- Judge: KEEP — independent tests: 27/30 claims exact, 0 false, 3 imprecise (CopyOnWriteFs dry run cannot remove/rename base-only files; ReadAt wording; NewIOFS ReadDir lists rooted dirs). All three reproduced by the implementer (RemoveAll returns nil and the file stays visible) and reworded in the next commit.

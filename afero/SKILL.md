@@ -76,7 +76,7 @@ A test that passes on `MemMapFs` proves the logic, not the filesystem contract. 
 1. **It creates missing parent directories.** `afero.WriteFile(mem, "/no/such/dir/f.txt", …)` succeeds and the directories appear; on `OsFs` the same call fails. A forgotten `MkdirAll` passes every in-memory test. To prove the code creates its directories, run that test on disk: `afero.NewBasePathFs(afero.NewOsFs(), t.TempDir())`.
 2. **It does not enforce permission bits.** A file written `0o444` opens for writing and accepts the write. Test permission handling on disk, or with `ReadOnlyFs`.
 3. **Rooted and relative paths are different files.** `data/x.txt` and `/data/x.txt` are separate entries. Paths are cleaned (`/data//x.txt`, `/data/./x.txt` and `/data/../data/x.txt` all find `/data/x.txt`), but a leading `/` is never added or removed. Build every path from one absolute root with `filepath.Join`.
-4. **It is a weak `fs.FS`.** `afero.NewIOFS(mem)` sees only relative-keyed files (`fs.FS` names never start with `/`), and its files fail `fstest.TestFS` — `ReadAt` at end of file returns `nil` where `io.EOF` is required. Test `fs.FS` consumers with `fstest.MapFS`, not a bridged `MemMapFs`.
+4. **It is a weak `fs.FS`.** `afero.NewIOFS(mem)` opens only relative-keyed files (`fs.FS` names never start with `/`), yet `ReadDir(".")` still lists the top directory of a rooted key, which then fails to open. Its files also fail `fstest.TestFS`: a `ReadAt` that runs past end of file returns the bytes it read with a `nil` error where `io.EOF` is required. Test `fs.FS` consumers with `fstest.MapFS`, not a bridged `MemMapFs`.
 
 It is safe for concurrent use: parallel goroutines writing different files pass the race detector, so `t.Parallel` subtests may share one `MemMapFs`.
 
@@ -85,12 +85,12 @@ It is safe for concurrent use: parallel goroutines writing different files pass 
 | Constructor | Behavior |
 | --- | --- |
 | `afero.NewReadOnlyFs(fs)` | Every write fails with `EPERM`; `errors.Is(err, os.ErrPermission)` is true. |
-| `afero.NewCopyOnWriteFs(base, layer)` | Reads fall through to `base`; writes land in `layer`; `base` is never modified. |
+| `afero.NewCopyOnWriteFs(base, layer)` | Reads fall through to `base`; writes land in `layer`; `base` is never modified. Files that exist only in `base` cannot be removed or renamed. |
 | `afero.NewBasePathFs(fs, dir)` | Maps every path under `dir`; `/in.txt` is `dir/in.txt`, and `../` above `dir` does not resolve. |
 | `afero.FromIOFS{FS: fsys}` | Adapts a read-only `fs.FS` (`embed.FS`, `fstest.MapFS`) to `afero.Fs`; writes fail. |
 | `afero.NewIOFS(fs)` | Adapts an `afero.Fs` to `fs.FS` (see the `MemMapFs` caveat above). |
 
-`CopyOnWriteFs` is a dry run for free. The command runs its real code against an overlay, then reports what changed, and the disk is untouched:
+`CopyOnWriteFs` is a dry run for free when the command only creates or overwrites files. It runs its real code against an overlay, then reports what changed, and the disk is untouched:
 
 ```go
 func run(fs afero.Fs, dryRun bool) (afero.Fs, error) {
@@ -100,6 +100,8 @@ func run(fs afero.Fs, dryRun bool) (afero.Fs, error) {
     return fs, apply(fs) // apply writes through fs; on a dry run only the overlay changes
 }
 ```
+
+It cannot delete or move a file that exists only in the base: `Remove` fails with "file does not exist", `Rename` fails with `EPERM`, and `RemoveAll` returns `nil` while the file stays visible — a dry run that reports success for a delete it never staged. A command that deletes or moves files needs its own plan-then-apply step for `--dry-run`.
 
 ## `BasePathFs` Is Not a Security Boundary
 
