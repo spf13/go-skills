@@ -50,7 +50,7 @@ def main() -> int:
         validate(path, schema, schema_name, errors)
 
     if errors:
-        print("manifest validation failed:", file=sys.stderr)
+        print(f"manifest validation failed ({len(errors)} problem(s)):", file=sys.stderr)
         for error in errors:
             print(f"  - {error}", file=sys.stderr)
         return 1
