@@ -59,6 +59,13 @@ Frontmatter requires `name` and `description`.
 - `name` must equal the skill directory name and `plugin.json.name`.
 - `description` is what drives model-invoked triggering. It must name the concrete contexts, file types, and phrases a user would actually say, and be at least 40 characters long. Past that bar, quality is judged in review — every current skill is a worked example.
 
+## Go code in skills
+
+`.github/scripts/check_skill_code.py` runs every skill against the latest stable Go toolchain:
+
+- Every ```` ```go ```` fence must parse with that toolchain's `gofmt`. Fragments are fine — a fence passes as a file, as declarations, as statements, or as declarations followed by statements, and `{ ... }` or a line of `...` marks elided code. Fence `go.mod` content and other non-Go text as ```` ```text ````.
+- Every standard-library version claim must name the release that introduced the symbol, per the toolchain's own `stdversion` manifest. A claim is a `| 1.X | … |` row in a Since/Feature table, a heading ending in `(Go 1.X)`, or a backticked symbol written directly before `(Go 1.X)`. The first symbol is the claim's subject and must match exactly; any other symbol must merely exist by then. Language features and behavior changes have no symbol and are checked in review.
+
 ## Versioning and release
 
 The catalog carries **one version across all six plugins**. They move together; there is no per-skill version.
@@ -102,7 +109,10 @@ python3 .github/scripts/check_invariants.py
 # 3. Go release currency (pass the value the workflow fetched)
 python3 .github/scripts/check_go_release.py "$(curl -fsS 'https://go.dev/dl/?mode=json' | jq -r '[.[] | select(.stable == true)][0].version')"
 
-# 4. Links in README.md and CONTRIBUTING.md resolve
+# 4. Go fences parse and std version claims match (needs the latest stable Go on PATH)
+python3 .github/scripts/check_skill_code.py
+
+# 5. Links in README.md and CONTRIBUTING.md resolve
 lychee README.md CONTRIBUTING.md
 ```
 

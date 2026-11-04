@@ -154,7 +154,7 @@ The module proxy caches every tagged version permanently. **Never delete or re-t
 
 The correct fix is `retract`:
 
-```go
+```text
 // go.mod of a NEW release (e.g. v1.4.2)
 retract (
     v1.4.1 // Broke Parse on empty input; use v1.4.2.
