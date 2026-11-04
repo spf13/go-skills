@@ -13,6 +13,7 @@ import contextlib
 import io
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -82,6 +83,9 @@ class CatalogTest(unittest.TestCase):
         self.tmp = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, self.tmp)
         self.catalog = Catalog(self.tmp)
+        # An empty repository: no tags, no HEAD, so the tag rules see a clean slate
+        # however the machine running the tests is set up.
+        subprocess.run(["git", "init", "-q", str(self.tmp)], check=True)
         for patch in (
             mock.patch.object(check_invariants, "ROOT", self.tmp),
             mock.patch.dict(os.environ, {"GITHUB_REF_TYPE": "", "GITHUB_REF_NAME": ""}),
@@ -201,7 +205,16 @@ class GoReleaseTest(CatalogTest):
         self.assertEqual(self.check("tip"), (1, "error: cannot parse a Go version from 'tip'\n"))
 
 
-@unittest.skipUnless(shutil.which("go"), "needs a Go toolchain on PATH")
+def go_minor() -> int:
+    """Minor version of the `go` on PATH, or 0 without one."""
+    if not shutil.which("go"):
+        return 0
+    out = subprocess.run(["go", "env", "GOVERSION"], capture_output=True, text=True).stdout
+    match = re.search(r"go1\.(\d+)", out)
+    return int(match.group(1)) if match else 0
+
+
+@unittest.skipUnless(go_minor() >= 27, "needs Go 1.27 or newer on PATH")
 class SkillCodeTest(CatalogTest):
     def check(self, body: str) -> tuple[int, str]:
         write(self.tmp / "alpha" / "SKILL.md", skill_md("alpha", body=body))
@@ -244,9 +257,12 @@ class SkillCodeTest(CatalogTest):
     def test_file_names_are_not_symbols(self) -> None:
         self.assertEqual(self.check("Keep them in `errors.go` next to `doc.go`.\n")[0], 0)
 
-    def test_variable_declared_in_an_earlier_fence(self) -> None:
-        body = "```go\nuser := lookup(id)\n```\n\nThen:\n\n```go\nfmt.Println(user.Name)\n```\n"
-        self.assertEqual(self.check(body)[0], 0)
+    def test_declaration_in_one_fence_does_not_hide_another(self) -> None:
+        body = "```go\nfunc New(fs Store) {}\n```\n\nThen:\n\n```go\nvar err *fs.PathErrorz\n```\n"
+        self.assertIn("`fs.PathErrorz`", self.check(body)[1])
+
+    def test_variadic_parameter_is_a_declaration(self) -> None:
+        self.assertEqual(self.check("```go\nfunc join(path ...string) string {\n    return path.Clean\n}\n```\n")[0], 0)
 
     def test_failing_go_env_stops_clearly(self) -> None:
         failure = subprocess.CalledProcessError(1, ["go", "env"], stderr="go: download go1.99.0: toolchain not available\n")

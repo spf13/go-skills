@@ -40,6 +40,8 @@ jobs:
         with:
           go-version: stable
           cache: false
+      - name: Unit-test the check scripts
+        run: python3 -m unittest discover -s .github/scripts
       - name: Parse every Go fence and check std version claims
         run: python3 .github/scripts/check_skill_code.py
       - name: Run the behavioral claim tests

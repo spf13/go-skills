@@ -53,3 +53,11 @@ is a fresh subagent that never wrote the change.
 | Factual errors fixed in skills | — | 5 (strict-json ×4 passages, nogreenteagc ×2, cobra.Args, go.mod fence) |
 | SKILL.md total bytes | 125486 | 126065 |
 | CI jobs | 3 | 4 |
+
+## Sweep 2 (rock: CI guardrails)
+
+### S2 · correctness — KEPT — 68→76 — cc58d0c
+- Critique: module-level error lists leaked across main() calls (check_invariants.py:23, check_go_release.py:33); check_go_release's private skill discovery ignored the root; judge-3 checker gaps (std uuid/cmp hidden, `range pkg.Fn` as declaration, `errors.go` flagged, cross-fence vars, `go env` traceback).
+- Change: errors local to main; check_go_release reuses declared_skills; checker fixes; .github/scripts/test_checks.py (39 tests via main() on fixture catalogs).
+- Verified: suite on HEAD^ scripts → 7 failures + 1 error; on HEAD → 39 OK; smoke green.
+- Judge: KEEP — fixes outweigh one regression: skill-wide `declares` hides typos (go/SKILL.md:512 `fs afero.Fs` hides every `fs.*`); variadic params lost; Go-dependent tests fail instead of skip on go<1.27; InvariantsTest runs git in an unmanaged temp dir.

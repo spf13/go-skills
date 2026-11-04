@@ -190,7 +190,7 @@ def declares(source: str, name: str) -> bool:
     n = re.escape(name) + r"\b(?!\.)"
     return bool(
         re.search(rf"\b{n}\s*(,[\w\s,]*)?:?=[^=]", source)
-        or re.search(rf"[(,]\s*{n}\s+[\w*\[]", source)
+        or re.search(rf"[(,]\s*{n}\s+(\.\.\.)?[\w*\[]", source)
         or re.search(rf"\b(var|for)\s+(\w+\s*,\s*)?{n}", source)
     )
 
@@ -220,16 +220,17 @@ def code_only(source: str) -> str:
     return re.sub(r"//.*|\"(\\.|[^\"\n])*\"|`[^`]*`", "", source)
 
 
-def unknown_selectors(manifest: Manifest, source: str, foreign: set[str], skill_code: str) -> list[str]:
+def unknown_selectors(manifest: Manifest, source: str, foreign: set[str]) -> list[str]:
     """`pkg.Name` selectors in a fence that name a std package but no std symbol.
-    `skill_code` is every fence of the skill, for variables declared in another fence."""
+    A name the fence declares itself is a variable, not a package; declarations in
+    other fences do not count, so one `fs afero.Fs` parameter cannot hide `fs.*` typos."""
     std, other = imported_names(manifest, source)
     foreign = (foreign | other) - std
     code = code_only(source)
     unknown = []
     for qualifier, name in SELECTOR_RE.findall(code):
         packages = packages_named(manifest, qualifier)
-        if not packages or qualifier in foreign or declares(skill_code, qualifier):
+        if not packages or qualifier in foreign or declares(code, qualifier):
             continue
         if not any(name in manifest[p] for p in packages) and f"{qualifier}.{name}" not in unknown:
             unknown.append(f"{qualifier}.{name}")
@@ -288,14 +289,11 @@ def main() -> int:
         text = (directory / "SKILL.md").read_text(encoding="utf-8")
         where = f"{name}/SKILL.md"
         foreign = foreign_names(manifest, text)
-        skill_fences = fences(text)
-        skill_code = code_only("\n".join(source for _, source in skill_fences))
-
-        for line, source in skill_fences:
+        for line, source in fences(text):
             counts["fences"] += 1
             if (error := parse_error(root / "bin" / "gofmt", source)) is not None:
                 errors.append(f"{where}:{line}: go fence does not parse: {error}")
-            errors += [f"{where}:{line}: go fence uses `{s}`, which is not in the standard library" for s in unknown_selectors(manifest, source, foreign, skill_code)]
+            errors += [f"{where}:{line}: go fence uses `{s}`, which is not in the standard library" for s in unknown_selectors(manifest, source, foreign)]
 
         lines = prose(text)
         for line, content in lines:
