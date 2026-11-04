@@ -103,7 +103,7 @@ Run this before approving a design that introduces interfaces, generics, or func
 | Command registration | New subcommands registered with the parent — is this in the spec's file list? |
 | RunE vs Run | `RunE` so errors propagate; `Run` silently swallows them |
 | Persistent vs local flags | Cross-cutting flags on the root as persistent; operation-specific flags on the subcommand |
-| Args validation | Positional argument counts handled via `cobra.Args` validators, not inside `RunE`? |
+| Args validation | Positional argument counts handled by the command's `Args` field (`cobra.ExactArgs`, `cobra.MatchAll`, or another `cobra.PositionalArgs`), not inside `RunE`? |
 | Viper binding | Env var names and config keys explicitly bound? Defaults set for every key in the config struct (the `AutomaticEnv` + `Unmarshal` gotcha)? Business logic receives typed config structs, never Viper itself? |
 | Output | Command output written via `cmd.OutOrStdout()` so it's testable? |
 | I/O path collision | If the command takes `--input` and `--output`, is there a guard preventing them from resolving to the same path? |

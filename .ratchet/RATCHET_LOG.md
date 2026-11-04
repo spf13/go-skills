@@ -14,3 +14,9 @@ is a fresh subagent that never wrote the change.
 - Change: rewrite the four passages; cobra-viper shows validating config bytes with encoding/json/v2 before Viper (compiled + run vs viper v1.21.0); add .github/claims stdlib test module (json v1 lenient / v2 strict, unbuffered timers) + CI step; CHANGELOG [Unreleased].
 - Verified: failing test of old claim → FAIL on go1.27.3; claims suite ok; check_skill_code 88/80, invariants, go_release, `claude plugin validate` green.
 - Judge: KEEP — old claim reproduced false, replacement verified true. Minor: nojsonv2 breaks the json/v2 snippet (unmentioned); timer test doesn't pin asynctimerchan removal; json.Options mention dropped.
+
+### S1 · completeness — KEPT — 40→66 — d69106e
+- Critique: check_skill_code.py skipped nonexistent std symbols, indented fences, context-package subjects; tracebacks on missing go/manifest (judge 1).
+- Change: unknown-symbol check in prose and fences (non-std module names skipped), subject = first symbol after context package, indented fences, clean one-line errors, CONTRIBUTING rules rewritten.
+- Verified: 89 fences / 222 symbols / 81 claim tokens on go1.27.3; invariants, go_release, claims, `claude plugin validate` green; implementer mutation 9/9.
+- Judge: KEEP — judge mutation 18/28 in scope. Follow-ups → S2: skill-wide foreign names hide std `uuid`/`cmp` (go/SKILL.md mentions google/uuid, go-cmp); `range pkg.X` read as a declaration (hides go/SKILL.md:858); filename `errors.go` false positive; cross-fence variables; `go env` failure traceback; bare `Type.Method` without context unchecked (document).

@@ -89,7 +89,8 @@ One line per feature, so availability is looked up here rather than guessed.
 | 1.27 | `runtime/pprof` `goroutineleak` profile generally available |
 | 1.27 | `time` timers and tickers always unbuffered; `asynctimerchan` removed |
 | 1.27 | Size-specialized small allocations (below 80 bytes) |
-| 1.27 | `encoding/json` backed by the `encoding/json/v2` implementation |
+| 1.27 | `encoding/json/v2` and `encoding/json/jsontext` packages (strict by default) |
+| 1.27 | `encoding/json` backed by the `encoding/json/v2` implementation, v1 behavior kept |
 | 1.27 | `simd` (experiment: `GOEXPERIMENT=simd`) |
 | 1.27 | `simd/archsimd` on arm64 and WebAssembly (experiment: `GOEXPERIMENT=simd`) |
 

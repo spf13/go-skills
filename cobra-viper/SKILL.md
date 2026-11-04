@@ -415,7 +415,7 @@ if err := v.ReadConfig(bytes.NewReader(data)); err != nil {
 }
 ```
 
-`GOEXPERIMENT=nojsonv2` restores the old implementation process-wide. It is a migration aid expected to be removed in a future release; do not depend on it.
+`GOEXPERIMENT=nojsonv2` restores the old implementation process-wide and also removes `encoding/json/v2`, so the check above stops compiling under it. It is a migration aid expected to be removed in a future release; do not depend on it.
 
 `v.Unmarshal` itself is unaffected by the switch: it maps fields with `mapstructure` tags, not `encoding/json`, so only the decode step changes.
 

@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `cobra-viper`, `go`, `go-spec-reviewer` — Go 1.27's `encoding/json` does **not** reject duplicate object names or invalid UTF-8; the v1 API keeps v1 behavior on the v2 implementation, and only `encoding/json/v2` is strict. The skills said the opposite, warning that working JSON config files would start failing. `cobra-viper` now shows how to validate a config file with `encoding/json/v2` before Viper reads it.
 - `go`, `go-release` — the `GOEXPERIMENT=nogreenteagc` opt-out was forecast for removal in Go 1.27 but still works there.
 - `go-release` — a `go.mod` `retract` block was fenced as Go code.
+- `go-spec-reviewer` — named a nonexistent `cobra.Args` type; Cobra's validators are `cobra.PositionalArgs` set on a command's `Args` field.
+- `go` — the version index now lists the Go 1.27 `encoding/json/v2` and `encoding/json/jsontext` packages.
+- `cobra-viper` — notes that `GOEXPERIMENT=nojsonv2` also removes `encoding/json/v2`.
 
 ### Added
 
