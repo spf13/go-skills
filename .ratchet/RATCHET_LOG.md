@@ -20,3 +20,36 @@ is a fresh subagent that never wrote the change.
 - Change: unknown-symbol check in prose and fences (non-std module names skipped), subject = first symbol after context package, indented fences, clean one-line errors, CONTRIBUTING rules rewritten.
 - Verified: 89 fences / 222 symbols / 81 claim tokens on go1.27.3; invariants, go_release, claims, `claude plugin validate` green; implementer mutation 9/9.
 - Judge: KEEP — judge mutation 18/28 in scope. Follow-ups → S2: skill-wide foreign names hide std `uuid`/`cmp` (go/SKILL.md mentions google/uuid, go-cmp); `range pkg.X` read as a declaration (hides go/SKILL.md:858); filename `errors.go` false positive; cross-fence variables; `go env` failure traceback; bare `Type.Method` without context unchecked (document).
+
+### S1 · docs/voice — KEPT — 86→92 — 646717b
+- Critique: go-spec-reviewer/SKILL.md:106 named nonexistent `cobra.Args`; go/SKILL.md version index lacked 1.27 `encoding/json/v2`/`jsontext`; cobra-viper didn't say nojsonv2 removes json/v2.
+- Change: point to `Args` field + `cobra.PositionalArgs`; add index row; one clause in cobra-viper; CHANGELOG lines.
+- Verified: `go doc` vs cobra v1.10.2; manifest shows both packages at 27; nojsonv2 build of the snippet fails; smoke green.
+- Judge: KEEP — fixes a nonexistent identifier; all claims verified.
+
+### S1 · simplify — CONVERGED — n/a
+- Critique: the brief's conservative appetite rules out restructuring skill content; no dead or duplicated skill text surfaced in this sweep. Script simplification belongs to rock 2 (S2).
+
+### S1 · reality — KEPT — gate passed — 646717b
+- Verified (clean tree, go1.27.3): validate_manifests 7 OK; invariants OK v1.1.0; go_release go1.27.3 OK; check_skill_code 89 fences / 225 symbols / 83 claim tokens; claims `go vet` + `go test` OK; `claude plugin validate` root + 6 skills OK.
+
+## Sweep 1 scorecard (rock: content fidelity)
+| Lens | Result | Score |
+| --- | --- | --- |
+| fidelity | KEPT | 68→80 |
+| correctness | KEPT | 70→86 |
+| completeness | KEPT | 40→66 |
+| docs/voice | KEPT | 86→92 |
+| simplify | CONVERGED | — |
+| reality | PASS | — |
+
+| Metric | Baseline | S1 |
+| --- | --- | --- |
+| Go fences mechanically parsed | 0 / 88 | 89 / 89 |
+| Std symbol mentions verified to exist | 0 | 225 |
+| Std version claim tokens verified | 0 | 83 |
+| Behavioral claim tests (go test) | 0 | 3 |
+| Python unit tests | 0 | 0 |
+| Factual errors fixed in skills | — | 5 (strict-json ×4 passages, nogreenteagc ×2, cobra.Args, go.mod fence) |
+| SKILL.md total bytes | 125486 | 126065 |
+| CI jobs | 3 | 4 |
