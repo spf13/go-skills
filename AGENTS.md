@@ -10,7 +10,7 @@ Source repository for spf13's Go Agent Skills marketplace. The skills table in `
 
 ## Checks
 
-Run these before committing; CI runs the same set.
+Run these before committing. CI runs the same set, plus a link check of `README.md` and `CONTRIBUTING.md`.
 
 ```bash
 python3 -m unittest discover -s .github/scripts

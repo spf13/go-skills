@@ -79,3 +79,12 @@ is a fresh subagent that never wrote the change.
 - Change: validate_manifests uses declared_skills; EXCLUDED = {"templates"}; fixture isolated from host git config; b.Loopz assertion.
 - Verified: same 7 manifests validated before/after; 61 tests OK; tests pass under a signing global config (parent: 1 error).
 - Judge: KEEP — equivalence proven. Minor: a hidden dir with plugin.json now counts as a skill → fixed next commit (skip dot-dirs).
+
+### S2 · security — KEPT — 35→95 — 27b238c
+- Critique: AGENTS.md published private hostnames, absolute paths, machine names, ssh commands (AGENTS.md:15-41 at 9adc400).
+- Change: generalized AGENTS.md (layout, CI checks, serving from a local clone); skill list points to README.
+- Verified: every listed command run green; grep of all tracked files for the removed names: no private hits.
+- Judge: KEEP — none remain outside git history (9adc400, no credentials). Nit: "CI runs the same set" omits the lychee link check → fixed in the docs follow-up.
+
+### S2 · architecture (follow-up) — 57c4e02
+- Change: skip every dot-directory in skill discovery (judge 8 minor); test added. 62 tests OK.
