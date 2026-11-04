@@ -17,7 +17,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 TAXONOMY = ("languages", "development", "frameworks")
 ENTRY_KEYS = {"name", "source", "category", "tags"}
-EXCLUDED = {"templates", ".github", ".git", ".claude-plugin", ".codegraph"}
+# Directories with a plugin.json that are not skills. Anything without one is
+# skipped anyway, so only the scaffold needs naming.
+EXCLUDED = {"templates"}
 MIN_DESCRIPTION = 40
 
 def read_json(path: Path) -> dict:

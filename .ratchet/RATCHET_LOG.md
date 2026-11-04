@@ -67,3 +67,9 @@ is a fresh subagent that never wrote the change.
 - Change: unittest step in the skill-code CI job; per-fence declarations; variadic params; skip below Go 1.27; `git init` fixture.
 - Verified: 40 tests OK on go1.27.3; 40 run / 20 skipped on go1.24.7; fs.PathErrorz mutation at go/SKILL.md:444 caught. (Commit message says 41/21 — off by one; recorded here as the correction.)
 - Judge: KEEP — mutation 35/58 killed. Survivors: invariants (dup tags, source, dup entries, entry w/o dir, plugin.json name, missing description, MIN_DESCRIPTION, README link mismatch, set-vs-list, missing CHANGELOG, EXCLUDED), go_release (claim ahead, env fallback), skill_code (non-subject exist rule, prose foreign exemption, std-import override, variadic test can't fail, var/for decls, t./b. receivers, code_only stripping, main exit code).
+
+### S2 · tests (pass 2) — KEPT — 52→68 — 7476fec
+- Critique: judge 6's 23 surviving mutants; no test asserted a non-zero exit.
+- Change: run() asserts exit code agrees with reported problems; 21 targeted tests; `var` declaration regex narrowed to the one form nothing else covers.
+- Verified: 61 tests OK (go1.27.3), 26 skipped on go1.24.7; implementer re-ran judge-6 survivors: 22/22 killed.
+- Judge: KEEP — fresh campaign 33/49 (parent 25/48). Defects: real-git-tag test breaks under host `commit.gpgsign=true`; `b.Loop()` half of a test can't fail. Remaining survivors (off-by-ones, (Go 1.X+) headings, value-receiver keys, TEST_RECEIVERS width) → backlog.

@@ -90,15 +90,16 @@ class CatalogTest(unittest.TestCase):
         self.tmp = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, self.tmp)
         self.catalog = Catalog(self.tmp)
-        # An empty repository: no tags, no HEAD, so the tag rules see a clean slate
-        # however the machine running the tests is set up.
-        subprocess.run(["git", "init", "-q", str(self.tmp)], check=True)
         for patch in (
             mock.patch.object(check_invariants, "ROOT", self.tmp),
-            mock.patch.dict(os.environ, {"GITHUB_REF_TYPE": "", "GITHUB_REF_NAME": ""}),
+            # Host git config (commit signing, default branch) must not reach the fixture repo.
+            mock.patch.dict(os.environ, {"GITHUB_REF_TYPE": "", "GITHUB_REF_NAME": "", "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1"}),
         ):
             patch.start()
             self.addCleanup(patch.stop)
+        # An empty repository: no tags, no HEAD, so the tag rules see a clean slate
+        # however the machine running the tests is set up.
+        subprocess.run(["git", "init", "-q", str(self.tmp)], check=True)
 
 
 class FrontmatterTest(unittest.TestCase):
@@ -354,6 +355,7 @@ class SkillCodeTest(CatalogTest):
     def test_test_receivers_resolve_to_testing(self) -> None:
         self.assertEqual(self.check("Use `b.Loop()` (Go 1.24) and `t.Context()`.\n")[0], 0)
         self.assertIn("`t.Contextz()` is not in the standard library", self.check("Use `t.Contextz()`.\n")[1])
+        self.assertIn("`b.Loopz()` is not in the standard library", self.check("Use `b.Loopz()`.\n")[1])
 
     def test_module_names_in_prose_are_skipped(self) -> None:
         body = "`runtime` here is `github.com/wailsapp/wails/v2/pkg/runtime`; call `runtime.EventsEmit`.\n"
