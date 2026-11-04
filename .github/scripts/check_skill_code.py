@@ -56,7 +56,9 @@ def toolchain() -> tuple[Path, str]:
         out = subprocess.run(["go", "env", "GOROOT", "GOVERSION"], capture_output=True, text=True, check=True)
     except FileNotFoundError:
         raise SystemExit("error: `go` is not on PATH; install the latest stable Go")
-    root, version = out.stdout.split()
+    except subprocess.CalledProcessError as failure:
+        raise SystemExit(f"error: `go env` failed: {failure.stderr.strip()}")
+    root, version = out.stdout.splitlines()
     return Path(root), version
 
 
@@ -169,6 +171,8 @@ def resolve(manifest: Manifest, token: str, context: list[str]) -> list[int] | N
     if pkg_part in TEST_RECEIVERS and "." not in name:
         packages, name = ["testing"], f"{TEST_RECEIVERS[pkg_part]}.{name}"
     elif pkg_part and packages_named(manifest, pkg_part):
+        if not name[:1].isupper():
+            return None  # unexported, so not an API: `errors.go` is a file name
         packages = packages_named(manifest, pkg_part)
     elif context and (token.startswith("(") or pkg_part[:1].isupper()):
         packages, name = context, token  # Type.Method or (*Type).Method under a context package
@@ -182,30 +186,50 @@ def resolve(manifest: Manifest, token: str, context: list[str]) -> list[int] | N
 
 
 def declares(source: str, name: str) -> bool:
-    """Whether a snippet binds `name` itself (variable, parameter, range value)."""
-    n = re.escape(name)
+    """Whether code binds `name` itself (variable, parameter, range value)."""
+    n = re.escape(name) + r"\b(?!\.)"
     return bool(
         re.search(rf"\b{n}\s*(,[\w\s,]*)?:?=[^=]", source)
-        or re.search(rf"[(,]\s*{n}\s+[\w*\[.]", source)
-        or re.search(rf"\b(var|range|for)\s+(\w+\s*,\s*)?{n}\b", source)
+        or re.search(rf"[(,]\s*{n}\s+[\w*\[]", source)
+        or re.search(rf"\b(var|for)\s+(\w+\s*,\s*)?{n}", source)
     )
 
 
+def short_name(path: str) -> str:
+    return re.sub(r"/v\d+$", "", path).rsplit("/", 1)[-1]
+
+
+def imported_names(manifest: Manifest, source: str) -> tuple[set[str], set[str]]:
+    """(std, non-std) package names a snippet imports."""
+    std, other = set(), set()
+    for alias, path in IMPORT_RE.findall(source):
+        (std if path in manifest else other).add(alias or short_name(path))
+    return std, other
+
+
 def foreign_names(manifest: Manifest, text: str) -> set[str]:
-    """Package names a SKILL.md takes from outside the standard library, from fence
-    imports and from module paths it mentions (Wails' `runtime`, go-cmp's `cmp`)."""
-    paths = [path for _, path in IMPORT_RE.findall(text)] + MODULE_PATH_RE.findall(text)
-    return {re.sub(r"/v\d+$", "", p).rsplit("/", 1)[-1] for p in paths if p not in manifest}
+    """Package names a SKILL.md takes from outside the standard library: non-std
+    imports in its fences and module paths it mentions (Wails' `runtime`) — unless
+    the skill also imports the std package of that name (`uuid`, `cmp`)."""
+    std, other = imported_names(manifest, text)
+    mentioned = {short_name(p) for p in MODULE_PATH_RE.findall(text) if p not in manifest}
+    return (other | mentioned) - std
 
 
-def unknown_selectors(manifest: Manifest, source: str, foreign: set[str]) -> list[str]:
-    """`pkg.Name` selectors in a fence that name a std package but no std symbol."""
-    foreign = foreign | {alias for alias, path in IMPORT_RE.findall(source) if alias and path not in manifest}
-    code = re.sub(r"//.*|\"(\\.|[^\"\n])*\"|`[^`]*`", "", source)
+def code_only(source: str) -> str:
+    return re.sub(r"//.*|\"(\\.|[^\"\n])*\"|`[^`]*`", "", source)
+
+
+def unknown_selectors(manifest: Manifest, source: str, foreign: set[str], skill_code: str) -> list[str]:
+    """`pkg.Name` selectors in a fence that name a std package but no std symbol.
+    `skill_code` is every fence of the skill, for variables declared in another fence."""
+    std, other = imported_names(manifest, source)
+    foreign = (foreign | other) - std
+    code = code_only(source)
     unknown = []
     for qualifier, name in SELECTOR_RE.findall(code):
         packages = packages_named(manifest, qualifier)
-        if not packages or qualifier in foreign or declares(code, qualifier):
+        if not packages or qualifier in foreign or declares(skill_code, qualifier):
             continue
         if not any(name in manifest[p] for p in packages) and f"{qualifier}.{name}" not in unknown:
             unknown.append(f"{qualifier}.{name}")
@@ -264,12 +288,14 @@ def main() -> int:
         text = (directory / "SKILL.md").read_text(encoding="utf-8")
         where = f"{name}/SKILL.md"
         foreign = foreign_names(manifest, text)
+        skill_fences = fences(text)
+        skill_code = code_only("\n".join(source for _, source in skill_fences))
 
-        for line, source in fences(text):
+        for line, source in skill_fences:
             counts["fences"] += 1
             if (error := parse_error(root / "bin" / "gofmt", source)) is not None:
                 errors.append(f"{where}:{line}: go fence does not parse: {error}")
-            errors += [f"{where}:{line}: go fence uses `{s}`, which is not in the standard library" for s in unknown_selectors(manifest, source, foreign)]
+            errors += [f"{where}:{line}: go fence uses `{s}`, which is not in the standard library" for s in unknown_selectors(manifest, source, foreign, skill_code)]
 
         lines = prose(text)
         for line, content in lines:
