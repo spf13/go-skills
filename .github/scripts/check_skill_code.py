@@ -191,7 +191,7 @@ def declares(source: str, name: str) -> bool:
     return bool(
         re.search(rf"\b{n}\s*(,[\w\s,]*)?:?=[^=]", source)
         or re.search(rf"[(,]\s*{n}\s+(\.\.\.)?[\w*\[]", source)
-        or re.search(rf"\b(var|for)\s+(\w+\s*,\s*)?{n}", source)
+        or re.search(rf"\bvar\s+{n}", source)  # `var x T`; `var x = …` and `for x :=` match above
     )
 
 

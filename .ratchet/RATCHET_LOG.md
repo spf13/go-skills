@@ -61,3 +61,9 @@ is a fresh subagent that never wrote the change.
 - Change: errors local to main; check_go_release reuses declared_skills; checker fixes; .github/scripts/test_checks.py (39 tests via main() on fixture catalogs).
 - Verified: suite on HEAD^ scripts → 7 failures + 1 error; on HEAD → 39 OK; smoke green.
 - Judge: KEEP — fixes outweigh one regression: skill-wide `declares` hides typos (go/SKILL.md:512 `fs afero.Fs` hides every `fs.*`); variadic params lost; Go-dependent tests fail instead of skip on go<1.27; InvariantsTest runs git in an unmanaged temp dir.
+
+### S2 · tests — KEPT — 55→66 — d965586
+- Critique: suite not in CI; skill-wide `declares` hid typos (judge 5); Go-dependent tests failed (not skipped) below 1.27; invariants tests ran git in an unmanaged temp dir.
+- Change: unittest step in the skill-code CI job; per-fence declarations; variadic params; skip below Go 1.27; `git init` fixture.
+- Verified: 40 tests OK on go1.27.3; 40 run / 20 skipped on go1.24.7; fs.PathErrorz mutation at go/SKILL.md:444 caught. (Commit message says 41/21 — off by one; recorded here as the correction.)
+- Judge: KEEP — mutation 35/58 killed. Survivors: invariants (dup tags, source, dup entries, entry w/o dir, plugin.json name, missing description, MIN_DESCRIPTION, README link mismatch, set-vs-list, missing CHANGELOG, EXCLUDED), go_release (claim ahead, env fallback), skill_code (non-subject exist rule, prose foreign exemption, std-import override, variadic test can't fail, var/for decls, t./b. receivers, code_only stripping, main exit code).

@@ -67,7 +67,10 @@ class Catalog:
 
 
 def run(main) -> tuple[int, str]:
-    """Run a check's main(), returning (exit code, stdout+stderr)."""
+    """Run a check's main(), returning (exit code, stdout+stderr).
+
+    Every check must exit non-zero exactly when it reports a problem, so CI can
+    never go green over a failure it printed."""
     out = io.StringIO()
     with contextlib.redirect_stdout(out), contextlib.redirect_stderr(out):
         try:
@@ -75,7 +78,11 @@ def run(main) -> tuple[int, str]:
         except SystemExit as exit:
             code = exit.code if isinstance(exit.code, int) else 1
             out.write(str(exit.code))
-    return code, out.getvalue()
+    text = out.getvalue()
+    reported = "failed (" in text or text.startswith("error:")
+    if (code != 0) != reported:
+        raise AssertionError(f"exit code {code} disagrees with the output:\n{text}")
+    return code, text
 
 
 class CatalogTest(unittest.TestCase):
@@ -169,6 +176,67 @@ class InvariantsTest(CatalogTest):
         write(self.tmp / "README.md", "| [`alpha`](./alpha/SKILL.md) | x | x |\n")
         self.assertIn("README skills table must list every skill exactly once", self.check()[1])
 
+    def test_duplicate_keywords(self) -> None:
+        self.catalog.entries = []
+        self.catalog.add_skill("alpha", keywords=["go", "go"])
+        self.catalog.add_skill("beta")
+        self.catalog.write_catalog()
+        self.assertIn("'alpha': tags and keywords must each be free of duplicates", self.check()[1])
+
+    def test_source_must_point_at_the_directory(self) -> None:
+        self.catalog.entries[0]["source"] = "./beta"
+        self.catalog.write_catalog()
+        self.assertIn("entry 'alpha': source must be './alpha'", self.check()[1])
+
+    def test_duplicate_entry_names(self) -> None:
+        self.catalog.entries.append(dict(self.catalog.entries[0]))
+        write(self.tmp / ".claude-plugin" / "marketplace.json", json.dumps({"plugins": self.catalog.entries}))
+        self.assertIn("marketplace.json has duplicate entry names", self.check()[1])
+
+    def test_entry_without_a_directory(self) -> None:
+        self.catalog.entries.append({"name": "ghost", "source": "./ghost", "category": "development", "tags": ["go"]})
+        self.catalog.write_catalog()
+        self.assertIn("marketplace entry 'ghost' has no matching skill directory", self.check()[1])
+
+    def test_plugin_name_must_match_directory(self) -> None:
+        write(self.tmp / "alpha" / ".claude-plugin" / "plugin.json", json.dumps({"name": "other", "version": VERSION, "keywords": ["go", "alpha"]}))
+        self.assertIn("'alpha': plugin.json name is 'other'", self.check()[1])
+
+    def test_missing_description(self) -> None:
+        write(self.tmp / "alpha" / "SKILL.md", "---\nname: alpha\n---\n")
+        self.assertIn("'alpha': SKILL.md frontmatter is missing a description", self.check()[1])
+
+    def test_description_length_boundary(self) -> None:
+        write(self.tmp / "alpha" / "SKILL.md", skill_md("alpha", description="x" * 39))
+        self.assertIn("description is 39 chars", self.check()[1])
+        write(self.tmp / "alpha" / "SKILL.md", skill_md("alpha", description="x" * 40))
+        self.assertEqual(self.check()[0], 0)
+
+    def test_readme_row_must_link_its_own_skill(self) -> None:
+        write(self.tmp / "README.md", "| [`alpha`](./beta/SKILL.md) | x | x |\n| [`beta`](./beta/SKILL.md) | x | x |\n")
+        self.assertIn("README table row 'alpha' links to ./beta/SKILL.md", self.check()[1])
+
+    def test_readme_row_listed_twice(self) -> None:
+        rows = "".join(f"| [`{n}`](./{n}/SKILL.md) | x | x |\n" for n in ("alpha", "alpha", "beta"))
+        write(self.tmp / "README.md", rows)
+        self.assertIn("README skills table must list every skill exactly once", self.check()[1])
+
+    def test_missing_changelog(self) -> None:
+        (self.tmp / "CHANGELOG.md").unlink()
+        self.assertIn("CHANGELOG.md is missing", self.check()[1])
+
+    def test_scaffold_directory_is_not_a_skill(self) -> None:
+        write(self.tmp / "templates" / "SKILL.md", skill_md("your-skill"))
+        write(self.tmp / "templates" / ".claude-plugin" / "plugin.json", json.dumps({"name": "your-skill", "version": "0.0.0"}))
+        self.assertEqual(self.check()[0], 0)
+
+    def test_version_behind_a_real_git_tag(self) -> None:
+        git = ["git", "-C", str(self.tmp), "-c", "user.name=t", "-c", "user.email=t@example.com"]
+        subprocess.run([*git, "commit", "-q", "--allow-empty", "-m", "x"], check=True)
+        subprocess.run([*git, "tag", "v2.0.0"], check=True)
+        subprocess.run([*git, "commit", "-q", "--allow-empty", "-m", "y"], check=True)
+        self.assertIn(f"catalog version {VERSION} is older than the latest tag v2.0.0", self.check()[1])
+
     def test_tagged_commit_must_carry_its_version(self) -> None:
         with mock.patch.dict(os.environ, {"GITHUB_REF_TYPE": "tag", "GITHUB_REF_NAME": "v9.9.9"}):
             self.assertIn(f"HEAD is tagged v9.9.9 but the catalog version is {VERSION}", self.check()[1])
@@ -184,8 +252,9 @@ class GoReleaseTest(CatalogTest):
         claim = skill_md("alpha", description="Idiomatic Go, current through Go 1.27. Use whenever Go code is written.")
         write(self.tmp / "alpha" / "SKILL.md", claim)
 
-    def check(self, latest: str) -> tuple[int, str]:
-        with mock.patch.object(sys, "argv", ["check_go_release.py", latest]):
+    def check(self, latest: str, env: str = "") -> tuple[int, str]:
+        argv = ["check_go_release.py", latest] if latest else ["check_go_release.py"]
+        with mock.patch.object(sys, "argv", argv), mock.patch.dict(os.environ, {"GO_RELEASE_LATEST": env}):
             return run(check_go_release.main)
 
     def test_claim_matches_latest(self) -> None:
@@ -196,6 +265,16 @@ class GoReleaseTest(CatalogTest):
         self.assertEqual(code, 1)
         self.assertIn("claims 'current through Go 1.27' but the latest stable Go release is go1.28.0", out)
         self.assertIn("behind", out)
+
+    def test_claim_ahead_of_latest(self) -> None:
+        self.assertIn("the claim is ahead of the release", self.check("go1.26.5")[1])
+
+    def test_latest_from_environment(self) -> None:
+        self.assertEqual(self.check("", env="go1.27.1")[0], 0)
+        self.assertIn("ahead of", self.check("", env="go1.26.0")[1])
+
+    def test_no_latest_supplied(self) -> None:
+        self.assertIn("error: no latest Go version supplied", self.check("")[1])
 
     def test_known_claiming_skill_must_keep_its_claim(self) -> None:
         with mock.patch.object(check_go_release, "CLAIMING_SKILLS", frozenset({"beta"})):
@@ -262,7 +341,32 @@ class SkillCodeTest(CatalogTest):
         self.assertIn("`fs.PathErrorz`", self.check(body)[1])
 
     def test_variadic_parameter_is_a_declaration(self) -> None:
-        self.assertEqual(self.check("```go\nfunc join(path ...string) string {\n    return path.Clean\n}\n```\n")[0], 0)
+        self.assertEqual(self.check("```go\nfunc join(path ...string) string {\n    return path.Cleanz\n}\n```\n")[0], 0)
+
+    def test_var_and_for_bind_names(self) -> None:
+        body = "```go\nvar url Endpoint\nuse(url.Hostz)\nfor _, path := range ps {\n    use(path.Basez)\n}\n```\n"
+        self.assertEqual(self.check(body)[0], 0)
+
+    def test_strings_and_comments_are_not_code(self) -> None:
+        body = '```go\nmsg := "call strings.Bogus"\n// strings.Bogus is not real\nuse(msg)\n```\n'
+        self.assertEqual(self.check(body)[0], 0)
+
+    def test_test_receivers_resolve_to_testing(self) -> None:
+        self.assertEqual(self.check("Use `b.Loop()` (Go 1.24) and `t.Context()`.\n")[0], 0)
+        self.assertIn("`t.Contextz()` is not in the standard library", self.check("Use `t.Contextz()`.\n")[1])
+
+    def test_module_names_in_prose_are_skipped(self) -> None:
+        body = "`runtime` here is `github.com/wailsapp/wails/v2/pkg/runtime`; call `runtime.EventsEmit`.\n"
+        self.assertEqual(self.check(body)[0], 0)
+        self.assertIn("`runtime.EventsEmit`", self.check("Call `runtime.EventsEmit`.\n")[1])
+
+    def test_std_import_overrides_module_name_in_prose(self) -> None:
+        body = 'Not `github.com/google/uuid`: use `uuid.NewV9()`.\n\n```go\nimport "uuid"\n```\n'
+        self.assertIn("`uuid.NewV9()` is not in the standard library", self.check(body)[1])
+
+    def test_other_symbols_must_exist_by_the_claim(self) -> None:
+        out = self.check("### `errors.Join` with `errors.AsType` (Go 1.20)\n")[1]
+        self.assertIn("`errors.AsType` is used for Go 1.20 but arrived in Go 1.26", out)
 
     def test_failing_go_env_stops_clearly(self) -> None:
         failure = subprocess.CalledProcessError(1, ["go", "env"], stderr="go: download go1.99.0: toolchain not available\n")
