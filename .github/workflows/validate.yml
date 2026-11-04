@@ -42,6 +42,9 @@ jobs:
           cache: false
       - name: Parse every Go fence and check std version claims
         run: python3 .github/scripts/check_skill_code.py
+      - name: Run the behavioral claim tests
+        working-directory: .github/claims
+        run: go test ./...
 
   links:
     name: links

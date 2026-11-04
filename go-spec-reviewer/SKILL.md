@@ -56,7 +56,7 @@ Before reviewing, explore the existing codebase to understand conventions and sp
   - `LastIndex`-based splitting where `strings.CutLast` or `bytes.CutLast` applies (1.27) — a slice around the last occurrence of a separator.
   - `b.N` benchmark loops. `B.Loop` itself is Go 1.24; the change is 1.26, where it stopped inhibiting inlining of the loop body. Since then migrating `b.N` to `B.Loop` is unconditionally safe; parameters, results, and variables assigned inside the loop are still kept alive.
   - Third-party UUID libraries where the stdlib `uuid` package applies (1.27).
-  - `encoding/json` v1 defaults where the spec targets `go 1.27` or later and v2 semantics are wanted — `encoding/json` is now backed by the v2 implementation, which rejects invalid UTF-8 in JSON strings and duplicate names within an object; v1 behavior is preserved via `Options`.
+  - `encoding/json` where the spec targets `go 1.27` or later and needs strict decoding — use `encoding/json/v2` (1.27), which rejects invalid UTF-8 and duplicate object names. `encoding/json` now runs on the v2 implementation but keeps v1 behavior and accepts both.
 
 #### Version Gate — Check Both Directions
 

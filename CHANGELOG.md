@@ -4,6 +4,19 @@ All notable changes to this catalog are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this catalog adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). One version covers all six plugins; they move together.
 
+## [Unreleased]
+
+### Fixed
+
+- `cobra-viper`, `go`, `go-spec-reviewer` — Go 1.27's `encoding/json` does **not** reject duplicate object names or invalid UTF-8; the v1 API keeps v1 behavior on the v2 implementation, and only `encoding/json/v2` is strict. The skills said the opposite, warning that working JSON config files would start failing. `cobra-viper` now shows how to validate a config file with `encoding/json/v2` before Viper reads it.
+- `go`, `go-release` — the `GOEXPERIMENT=nogreenteagc` opt-out was forecast for removal in Go 1.27 but still works there.
+- `go-release` — a `go.mod` `retract` block was fenced as Go code.
+
+### Added
+
+- Repository — `.github/scripts/check_skill_code.py` and a `skill code` CI job: every Go fence in every skill must parse with the latest stable Go, and every standard-library version claim must match the toolchain's own `stdversion` manifest.
+- Repository — `.github/claims/`, a stdlib-only Go test suite that pins behavioral claims (JSON v1 vs v2 strictness, unbuffered timer channels) so a Go release that changes them turns CI red.
+
 ## [1.1.0] - 2026-09-28
 
 The catalog now covers **Go 1.26 and Go 1.27**, and every Go skill states the release it covers and gates its advice on the module's own `go` directive.

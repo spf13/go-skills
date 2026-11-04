@@ -381,14 +381,12 @@ db:
   name: myapp
 ```
 
-### 6. JSON Config Files Are Decoded Strictly (Go 1.27)
+### 6. JSON Config Files Under Go 1.27's `encoding/json`
 
-Since Go 1.27, `encoding/json` is backed by the `encoding/json/v2` implementation, and Viper decodes `.json` config files with `encoding/json`. The new defaults are stricter, and both of these are now errors where they previously slipped through:
+Since Go 1.27, `encoding/json` runs on the `encoding/json/v2` implementation, and Viper decodes `.json` config files with `encoding/json`. The v1 API keeps v1 semantics on the new engine, so a config file that parsed before still parses — including these two cases that are almost always mistakes in a hand-written file:
 
-- Invalid UTF-8 inside a JSON string.
-- Duplicate names within the same object.
-
-The consequence for a CLI is concrete: **a config file that previously parsed can now fail**. `v.ReadInConfig()` returns the decode error, and because config loading runs in `PersistentPreRunE`, the command stops before `RunE` — the same file, unchanged, fails under a newer toolchain alone:
+- Duplicate names within the same object are accepted, and the last one silently wins.
+- Invalid UTF-8 inside a JSON string is silently replaced with U+FFFD.
 
 ```json
 {
@@ -396,11 +394,28 @@ The consequence for a CLI is concrete: **a config file that previously parsed ca
 }
 ```
 
-That object has always been ambiguous — under the old decoder the last `host` silently won — and if that file is a user's `.myapp.json`, the upgrade turns a working command into one that exits with a config error on startup.
+What can change is error *text*: v1 behavior is preserved, but decode error messages may differ — never match on the text of a JSON decode error; match on its type.
 
-Two escape hatches exist, both scoped to v1 semantics rather than to any part of your code: `encoding/json.Options` configures v1 behavior on top of the v2 implementation, and `GOEXPERIMENT=nojsonv2` restores the old implementation process-wide. The environment variable is a migration aid — it is expected to be removed in a future release — so prefer fixing the config file, or using `Options` deliberately, over depending on it.
+The strict defaults belong to the new `encoding/json/v2` package (Go 1.27), which rejects both cases. To make a duplicated key a startup error instead of a silent override, validate the raw bytes with it before handing them to Viper:
 
-v1 *behavior* is otherwise preserved, but error message text may differ — never match on the text of a JSON decode error; match on its type.
+```go
+import jsonv2 "encoding/json/v2"
+
+data, err := os.ReadFile(path)
+if err != nil {
+    return err
+}
+var probe any
+if err := jsonv2.Unmarshal(data, &probe); err != nil {
+    return fmt.Errorf("config %s: %w", path, err) // e.g. duplicate object member name "host"
+}
+v.SetConfigType("json")
+if err := v.ReadConfig(bytes.NewReader(data)); err != nil {
+    return err
+}
+```
+
+`GOEXPERIMENT=nojsonv2` restores the old implementation process-wide. It is a migration aid expected to be removed in a future release; do not depend on it.
 
 `v.Unmarshal` itself is unaffected by the switch: it maps fields with `mapstructure` tags, not `encoding/json`, so only the decode step changes.
 
@@ -483,7 +498,7 @@ func TestServeCommand(t *testing.T) {
 
 - **Executing a subcommand variable directly in tests**: `serverCmd.Execute()` runs the whole tree from the root, not just that command. Build fresh trees with a factory and drive them through `SetArgs`.
 - **Env-only values missing after `Unmarshal`**: `AutomaticEnv` doesn't register keys. `SetDefault` or `BindEnv` every key in your config struct (see the gotcha above).
-- **Assuming a JSON config that once parsed still parses**: since Go 1.27 the decoder rejects invalid UTF-8 and duplicate object names, so a config file can start failing at `ReadInConfig` on a toolchain upgrade alone (see §6 above).
+- **Assuming Go 1.27 made JSON config decoding strict**: `encoding/json` still accepts duplicate object names (last wins) and invalid UTF-8; only `encoding/json/v2` rejects them. If a duplicated key should stop the command, validate with `encoding/json/v2` before `ReadConfig` (see §6 above).
 - **Accessing Viper before config is loaded**: values are empty until your setup has run (`PersistentPreRunE` or `cobra.OnInitialize`). Don't read Viper in `init()` functions or `var` blocks.
 - **Forgetting `BindPFlags`**: flags are not automatically visible to Viper. Bind the command's flag set explicitly.
 - **Missing `SetEnvKeyReplacer`**: nested keys with dots (e.g., `serve.addr`) won't match `MYAPP_SERVE_ADDR` without a replacer.

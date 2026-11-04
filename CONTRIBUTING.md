@@ -65,6 +65,7 @@ Frontmatter requires `name` and `description`.
 
 - Every ```` ```go ```` fence must parse with that toolchain's `gofmt`. Fragments are fine — a fence passes as a file, as declarations, as statements, or as declarations followed by statements, and `{ ... }` or a line of `...` marks elided code. Fence `go.mod` content and other non-Go text as ```` ```text ````.
 - Every standard-library version claim must name the release that introduced the symbol, per the toolchain's own `stdversion` manifest. A claim is a `| 1.X | … |` row in a Since/Feature table, a heading ending in `(Go 1.X)`, or a backticked symbol written directly before `(Go 1.X)`. The first symbol is the claim's subject and must match exactly; any other symbol must merely exist by then. Language features and behavior changes have no symbol and are checked in review.
+- A claim about runtime or library *behavior* — what a decoder accepts, what a channel's capacity is — gets a test in `.github/claims/` (`go test ./...` there), naming the `SKILL.md` section it backs. When Go changes the behavior, the test turns red and the skill text changes with it.
 
 ## Versioning and release
 
@@ -111,6 +112,7 @@ python3 .github/scripts/check_go_release.py "$(curl -fsS 'https://go.dev/dl/?mod
 
 # 4. Go fences parse and std version claims match (needs the latest stable Go on PATH)
 python3 .github/scripts/check_skill_code.py
+(cd .github/claims && go test ./...)
 
 # 5. Links in README.md and CONTRIBUTING.md resolve
 lychee README.md CONTRIBUTING.md
