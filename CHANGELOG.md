@@ -20,7 +20,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `afero` — a new skill for testable filesystem code with `spf13/afero`: choosing between `afero.Fs`, `fs.FS` and `os.Root`; injecting the filesystem; the four ways `MemMapFs` differs from a disk (it creates missing parents, ignores permission bits, keeps rooted and relative keys apart, and is a weak `fs.FS`); `ReadOnlyFs`, `CopyOnWriteFs` as a free dry run, and why `BasePathFs` is not a security boundary. Every behavior was verified against afero v1.15.0 on Go 1.27.
 - Repository — `.github/scripts/check_skill_code.py` and a `skill code` CI job: every Go fence in every skill must parse with the latest stable Go, and every standard-library version claim must match the toolchain's own `stdversion` manifest.
 - Repository — `.github/scripts/test_checks.py`, unit tests for every check script, run in CI.
-- Repository — `.github/claims/`, a stdlib-only Go test suite that pins behavioral claims (JSON v1 vs v2 strictness, unbuffered timer channels) so a Go release that changes them turns CI red.
+- Repository — `.github/claims/`, a stdlib-only Go test suite that pins behavioral claims (JSON v1 vs v2 strictness, unbuffered timer channels, the removed `asynctimerchan` pin failing the build) so a Go release that changes them turns CI red.
 
 ### Changed
 
