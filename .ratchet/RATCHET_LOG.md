@@ -97,3 +97,26 @@ is a fresh subagent that never wrote the change.
 
 ### S2 · simplify — CONVERGED — n/a
 - Critique: discovery deduped (ac6c74c), dead EXCLUDED entries and a redundant declares() branch removed (7476fec). Remaining script length is rules plus tests; further cuts would be churn.
+
+### S2 · reality — PASS — e1c950b
+- Verified on a fresh clone of origin/claude/festive-curie-d6zqps (go1.27.3): unittest OK; validate_manifests 8 OK; invariants 7 skills OK; go_release OK; check_skill_code 93 fences / 269 symbols / 84 claim tokens; claims vet+test OK; `claude plugin validate` root + 7 skills OK. (Counts include the afero skill, 6e76008, under S3 review.)
+
+## Sweep 2 scorecard (rock: CI guardrails)
+| Lens | Result | Score |
+| --- | --- | --- |
+| correctness | KEPT | 68→76 |
+| tests | KEPT ×2 | 55→66, 52→68 |
+| architecture | KEPT | 62→74 |
+| security | KEPT | 35→95 |
+| docs/voice | KEPT | 80→87 |
+| simplify | CONVERGED | — |
+| reality | PASS | — |
+
+| Metric | Baseline | S1 | S2 |
+| --- | --- | --- | --- |
+| Python unit tests | 0 | 0 | 62 |
+| Judge mutation kill rate (scripts) | n/a | n/a | 33/49 fresh campaign; 22/22 prior survivors |
+| Skill-discovery implementations | 3 | 3 | 1 |
+| Module-level mutable error state | 2 | 2 | 0 |
+| Private host/path mentions in tracked files | 15+ (AGENTS.md) | same | 0 |
+| CI jobs / steps | 3 / 4 | 4 / 6 | 4 / 7 |
