@@ -71,7 +71,7 @@ Tired of arguing with LLMs trained on Java-style codebases, I wrote this playboo
 
 - **Domains over layers.** Delete the `internal/` junk drawer and the `pkg/` anti-pattern.
 - **Standard library over frameworks.** `testing`, table-driven tests, stubs.
-- **Channels over mutexes.** Native concurrency, not static worker pools.
+- **Channels before mutexes.** Pass data over a channel where you can; keep the mutex for guarding state. No static worker pools.
 - **Command-first architecture.** The binary routes commands; logic stays out.
 
 ## The Golden Rule

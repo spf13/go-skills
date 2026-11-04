@@ -113,6 +113,8 @@ python3 .github/scripts/check_invariants.py
 
 # 3. Go release currency (pass the value the workflow fetched)
 python3 .github/scripts/check_go_release.py "$(curl -fsS 'https://go.dev/dl/?mode=json' | jq -r '[.[] | select(.stable == true)][0].version')"
+#    where go.dev is blocked, the module proxy lists the same stable releases:
+python3 .github/scripts/check_go_release.py "$(curl -fsS https://proxy.golang.org/golang.org/toolchain/@v/list | sed -n 's/^v0\.0\.1-\(go[0-9]*\.[0-9]*\.[0-9]*\)\.linux-amd64$/\1/p' | sort -V | tail -1)"
 
 # 4. Go fences parse and std version claims match (needs the latest stable Go on PATH)
 python3 .github/scripts/check_skill_code.py

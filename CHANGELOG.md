@@ -20,6 +20,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Repository — `.github/scripts/check_skill_code.py` and a `skill code` CI job: every Go fence in every skill must parse with the latest stable Go, and every standard-library version claim must match the toolchain's own `stdversion` manifest.
 - Repository — `.github/claims/`, a stdlib-only Go test suite that pins behavioral claims (JSON v1 vs v2 strictness, unbuffered timer channels) so a Go release that changes them turns CI red.
 
+### Changed
+
+- Repository — `AGENTS.md` no longer names private machines or paths; it lists the checks CI runs and how to serve the skills from a local clone.
+- Repository — the check scripts share one skill discovery, keep no state between runs, and are covered by `.github/scripts/test_checks.py`, which CI runs.
+- `README.md` — "Channels before mutexes" states the rule the `go` skill teaches: channels where data can be passed, a mutex where it guards state.
+- `CONTRIBUTING.md` — documents the checker's exact rules and a module-proxy fallback for looking up the latest Go release.
+
 ## [1.1.0] - 2026-09-28
 
 The catalog now covers **Go 1.26 and Go 1.27**, and every Go skill states the release it covers and gates its advice on the module's own `go` directive.
