@@ -85,7 +85,7 @@ It is safe for concurrent use: parallel goroutines writing different files pass 
 | Constructor | Behavior |
 | --- | --- |
 | `afero.NewReadOnlyFs(fs)` | Every write fails with `EPERM`; `errors.Is(err, os.ErrPermission)` is true. |
-| `afero.NewCopyOnWriteFs(base, layer)` | Reads fall through to `base`; writes land in `layer`; `base` is never modified. Files that exist only in `base` cannot be removed or renamed. |
+| `afero.NewCopyOnWriteFs(base, layer)` | Reads fall through to `base`; writes land in `layer`; `base` is never modified. Removing or renaming a file that `base` holds does not work (see below). |
 | `afero.NewBasePathFs(fs, dir)` | Maps every path under `dir`; `/in.txt` is `dir/in.txt`, and `../` above `dir` does not resolve. |
 | `afero.FromIOFS{FS: fsys}` | Adapts a read-only `fs.FS` (`embed.FS`, `fstest.MapFS`) to `afero.Fs`; writes fail. |
 | `afero.NewIOFS(fs)` | Adapts an `afero.Fs` to `fs.FS` (see the `MemMapFs` caveat above). |
@@ -101,7 +101,7 @@ func run(fs afero.Fs, dryRun bool) (afero.Fs, error) {
 }
 ```
 
-It cannot delete or move a file that exists only in the base: `Remove` fails with "file does not exist", `Rename` fails with `EPERM`, and `RemoveAll` returns `nil` while the file stays visible — a dry run that reports success for a delete it never staged. A command that deletes or moves files needs its own plan-then-apply step for `--dry-run`.
+It cannot delete or move a file that the base holds. For a file only in the base, `Remove` fails with "file does not exist", `Rename` fails with `EPERM`, and `RemoveAll` returns `nil` while the file stays visible; for a file the command already overwrote, `Remove` returns `nil` and the base copy shows through again. Both are a dry run that reports success for a delete it never staged. A command that deletes or moves files needs its own plan-then-apply step for `--dry-run`.
 
 ## `BasePathFs` Is Not a Security Boundary
 

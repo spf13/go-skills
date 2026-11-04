@@ -128,3 +128,21 @@ is a fresh subagent that never wrote the change.
 - Change: afero/SKILL.md + plugin.json + marketplace entry (development), README row, CONTRIBUTING category, CHANGELOG; "six" removed where a count was not needed; go skill cross-reference.
 - Verified: implementer scratch module (afero v1.15.0, go1.27.3, -race): 11 tests covering every claim and both code examples; all repo checks + `claude plugin validate ./afero` green.
 - Judge: KEEP — independent tests: 27/30 claims exact, 0 false, 3 imprecise (CopyOnWriteFs dry run cannot remove/rename base-only files; ReadAt wording; NewIOFS ReadDir lists rooted dirs). All three reproduced by the implementer (RemoveAll returns nil and the file stays visible) and reworded in the next commit.
+
+### S3 · correctness — KEPT — 80→91 — 51b35d1 (+ follow-up)
+- Critique: three imprecise afero claims (judge 11).
+- Change: dry run scoped to creates/overwrites; delete/move caveats; NewIOFS ReadDir and ReadAt wording.
+- Verified: implementer reproduced all three on afero v1.15.0 / go1.27.3.
+- Judge: KEEP — all reproduced independently. Minor: a file in both base and layer: Remove returns nil and the base copy shows through → reproduced and folded into the caveat (next commit).
+
+### S3 · tests — KEPT — (judged with 51b35d1) — cbc6e3e
+- Change: .github/claims/godebug_test.go — `godebug asynctimerchan=1` fails the build on Go 1.27; `=0` builds.
+- Judge: KEEP — real behavior; go1.26.3 builds the same pin, so the claim is specific to 1.27. Minor: GOWORK could leak; only `go 1.27` modules tested.
+
+### Final bookend · design/craft — KEPT — 82→86 — 4a35172
+- Change: validate_manifests failure header matches the other checks; PLAN.md refreshed.
+- Judge: KEEP — all four checks fail in one format; PLAN backlog matches repo (tags absent on origin).
+
+### Final bookend · architecture, simplify, ux, docs — CONVERGED
+- architecture/simplify: one discovery, no shared state, redundant regex removed (S2); nothing further that isn't churn.
+- ux/docs: every documented command in CONTRIBUTING and AGENTS run during S2/S3 judging; README skills table and counts updated for afero. Lychee link check not runnable locally [UNVERIFIED locally; CI runs it].
