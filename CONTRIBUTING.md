@@ -61,10 +61,11 @@ Frontmatter requires `name` and `description`.
 
 ## Go code in skills
 
-`.github/scripts/check_skill_code.py` runs every skill against the latest stable Go toolchain:
+`.github/scripts/check_skill_code.py` runs every skill against the latest stable Go toolchain, using that toolchain's own `stdversion` manifest as the record of which release introduced each standard-library symbol:
 
-- Every ```` ```go ```` fence must parse with that toolchain's `gofmt`. Fragments are fine — a fence passes as a file, as declarations, as statements, or as declarations followed by statements, and `{ ... }` or a line of `...` marks elided code. Fence `go.mod` content and other non-Go text as ```` ```text ````.
-- Every standard-library version claim must name the release that introduced the symbol, per the toolchain's own `stdversion` manifest. A claim is a `| 1.X | … |` row in a Since/Feature table, a heading ending in `(Go 1.X)`, or a backticked symbol written directly before `(Go 1.X)`. The first symbol is the claim's subject and must match exactly; any other symbol must merely exist by then. Language features and behavior changes have no symbol and are checked in review.
+- Every ```` ```go ```` fence, indented ones included, must parse with the toolchain's `gofmt`. Fragments are fine — a fence passes as a file, as declarations, as statements, or as declarations followed by statements, and `{ ... }` or a line of `...` marks elided code. Fence `go.mod` content and other non-Go text as ```` ```text ````.
+- Every standard-library symbol a skill names must exist: backticked prose such as `errors.AsType`, `sync.WaitGroup.Go` or `t.Context()`, and `pkg.Name` selectors inside fences. Names a skill takes from a non-standard module — an import in a fence, or a module path it mentions such as `github.com/wailsapp/wails/v2/pkg/runtime` — are skipped, as are names a fence declares itself.
+- Every standard-library version claim must name the right release. A claim is a `| 1.X | … |` row in a Since/Feature table, a heading ending in `(Go 1.X)`, or a backticked symbol written directly before `(Go 1.X)`. The claim's subject — its first symbol, or a package written as "the X package" — must have arrived exactly in 1.X; every other symbol must merely exist by then. A claim that records a behavior change ("`B.Loop` no longer inhibits inlining") has no subject, and a heading that names only a package as context ("`net/url` Clones") pins nothing. Language features have no symbol and are checked in review.
 - A claim about runtime or library *behavior* — what a decoder accepts, what a channel's capacity is — gets a test in `.github/claims/` (`go test ./...` there), naming the `SKILL.md` section it backs. When Go changes the behavior, the test turns red and the skill text changes with it.
 
 ## Versioning and release
