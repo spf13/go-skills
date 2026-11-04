@@ -231,6 +231,11 @@ class InvariantsTest(CatalogTest):
         write(self.tmp / "templates" / ".claude-plugin" / "plugin.json", json.dumps({"name": "your-skill", "version": "0.0.0"}))
         self.assertEqual(self.check()[0], 0)
 
+    def test_hidden_directory_is_not_a_skill(self) -> None:
+        write(self.tmp / ".tool" / "SKILL.md", skill_md(".tool"))
+        write(self.tmp / ".tool" / ".claude-plugin" / "plugin.json", json.dumps({"name": ".tool", "version": VERSION}))
+        self.assertEqual(self.check()[0], 0)
+
     def test_version_behind_a_real_git_tag(self) -> None:
         git = ["git", "-C", str(self.tmp), "-c", "user.name=t", "-c", "user.email=t@example.com"]
         subprocess.run([*git, "commit", "-q", "--allow-empty", "-m", "x"], check=True)

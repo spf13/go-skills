@@ -17,8 +17,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 TAXONOMY = ("languages", "development", "frameworks")
 ENTRY_KEYS = {"name", "source", "category", "tags"}
-# Directories with a plugin.json that are not skills. Anything without one is
-# skipped anyway, so only the scaffold needs naming.
+# Directories that are never skills, besides hidden ones (.git, .github, tool
+# state). Anything without a plugin.json is skipped anyway.
 EXCLUDED = {"templates"}
 MIN_DESCRIPTION = 40
 
@@ -50,7 +50,7 @@ def declared_skills() -> dict[str, Path]:
     """Root-level directories that are single-skill plugins."""
     found: dict[str, Path] = {}
     for path in sorted(ROOT.iterdir()):
-        if not path.is_dir() or path.name in EXCLUDED:
+        if not path.is_dir() or path.name in EXCLUDED or path.name.startswith("."):
             continue
         if (path / ".claude-plugin" / "plugin.json").is_file():
             found[path.name] = path

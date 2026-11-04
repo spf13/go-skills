@@ -73,3 +73,9 @@ is a fresh subagent that never wrote the change.
 - Change: run() asserts exit code agrees with reported problems; 21 targeted tests; `var` declaration regex narrowed to the one form nothing else covers.
 - Verified: 61 tests OK (go1.27.3), 26 skipped on go1.24.7; implementer re-ran judge-6 survivors: 22/22 killed.
 - Judge: KEEP — fresh campaign 33/49 (parent 25/48). Defects: real-git-tag test breaks under host `commit.gpgsign=true`; `b.Loop()` half of a test can't fail. Remaining survivors (off-by-ones, (Go 1.X+) headings, value-receiver keys, TEST_RECEIVERS width) → backlog.
+
+### S2 · architecture — KEPT — 62→74 — ac6c74c
+- Critique: skill discovery copied 3× (check_invariants.py:54, check_go_release.py:40 [removed in cc58d0c], validate_manifests.py:41); EXCLUDED twice with dead entries; fixture inherited host git config (judge 7).
+- Change: validate_manifests uses declared_skills; EXCLUDED = {"templates"}; fixture isolated from host git config; b.Loopz assertion.
+- Verified: same 7 manifests validated before/after; 61 tests OK; tests pass under a signing global config (parent: 1 error).
+- Judge: KEEP — equivalence proven. Minor: a hidden dir with plugin.json now counts as a skill → fixed next commit (skip dot-dirs).
