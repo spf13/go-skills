@@ -19,12 +19,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - `afero` — a new skill for testable filesystem code with `spf13/afero`: choosing between `afero.Fs`, `fs.FS` and `os.Root`; injecting the filesystem; the four ways `MemMapFs` differs from a disk (it creates missing parents, ignores permission bits, keeps rooted and relative keys apart, and is a weak `fs.FS`); `ReadOnlyFs`, `CopyOnWriteFs` as a free dry run, and why `BasePathFs` is not a security boundary. Every behavior was verified against afero v1.15.0 on Go 1.27.
 - Repository — `.github/scripts/check_skill_code.py` and a `skill code` CI job: every Go fence in every skill must parse with the latest stable Go, and every standard-library version claim must match the toolchain's own `stdversion` manifest.
+- Repository — `.github/scripts/test_checks.py`, unit tests for every check script, run in CI.
 - Repository — `.github/claims/`, a stdlib-only Go test suite that pins behavioral claims (JSON v1 vs v2 strictness, unbuffered timer channels) so a Go release that changes them turns CI red.
 
 ### Changed
 
 - Repository — `AGENTS.md` no longer names private machines or paths; it lists the checks CI runs and how to serve the skills from a local clone.
-- Repository — the check scripts share one skill discovery, keep no state between runs, and are covered by `.github/scripts/test_checks.py`, which CI runs.
+- Repository — the check scripts share one skill discovery and keep no state between runs.
 - `README.md` — "Channels before mutexes" states the rule the `go` skill teaches: channels where data can be passed, a mutex where it guards state.
 - `CONTRIBUTING.md` — documents the checker's exact rules and a module-proxy fallback for looking up the latest Go release.
 

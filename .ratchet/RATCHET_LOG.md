@@ -88,3 +88,12 @@ is a fresh subagent that never wrote the change.
 
 ### S2 · architecture (follow-up) — 57c4e02
 - Change: skip every dot-directory in skill discovery (judge 8 minor); test added. 62 tests OK.
+
+### S2 · docs/voice — KEPT — 80→87 — 5261cc3, fb3fc0e (+ 57c4e02 reviewed)
+- Critique: README.md:68 "Channels over mutexes" overstated the go skill (go/SKILL.md:123,317); CONTRIBUTING release lookup depended on go.dev only; AGENTS omitted the link check.
+- Change: README line states the skill's rule; proxy.golang.org fallback command; CHANGELOG Changed section; AGENTS CI wording.
+- Verified: fallback command run as written → go1.27.3, pass; 62 tests; smoke green.
+- Judge: KEEP — voice kept. Minor: test suite belongs under Added; AGENTS omits the scheduled release check → both fixed in the next commit.
+
+### S2 · simplify — CONVERGED — n/a
+- Critique: discovery deduped (ac6c74c), dead EXCLUDED entries and a redundant declares() branch removed (7476fec). Remaining script length is rules plus tests; further cuts would be churn.
