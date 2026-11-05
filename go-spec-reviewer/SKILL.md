@@ -56,7 +56,7 @@ Before reviewing, explore the existing codebase to understand conventions and sp
   - `LastIndex`-based splitting where `strings.CutLast` or `bytes.CutLast` applies (1.27) — a slice around the last occurrence of a separator.
   - `b.N` benchmark loops. `B.Loop` itself is Go 1.24; the change is 1.26, where it stopped inhibiting inlining of the loop body. Since then migrating `b.N` to `B.Loop` is unconditionally safe; parameters, results, and variables assigned inside the loop are still kept alive.
   - Third-party UUID libraries where the stdlib `uuid` package applies (1.27).
-  - `encoding/json` v1 defaults where the spec targets `go 1.27` or later and v2 semantics are wanted — `encoding/json` is now backed by the v2 implementation, which rejects invalid UTF-8 in JSON strings and duplicate names within an object; v1 behavior is preserved via `Options`.
+  - `encoding/json` where the spec targets `go 1.27` or later and needs strict decoding — use `encoding/json/v2` (1.27), which rejects invalid UTF-8 and duplicate object names. `encoding/json` now runs on the v2 implementation but keeps v1 behavior and accepts both.
 
 #### Version Gate — Check Both Directions
 
@@ -103,7 +103,7 @@ Run this before approving a design that introduces interfaces, generics, or func
 | Command registration | New subcommands registered with the parent — is this in the spec's file list? |
 | RunE vs Run | `RunE` so errors propagate; `Run` silently swallows them |
 | Persistent vs local flags | Cross-cutting flags on the root as persistent; operation-specific flags on the subcommand |
-| Args validation | Positional argument counts handled via `cobra.Args` validators, not inside `RunE`? |
+| Args validation | Positional argument counts handled by the command's `Args` field (`cobra.ExactArgs`, `cobra.MatchAll`, or another `cobra.PositionalArgs`), not inside `RunE`? |
 | Viper binding | Env var names and config keys explicitly bound? Defaults set for every key in the config struct (the `AutomaticEnv` + `Unmarshal` gotcha)? Business logic receives typed config structs, never Viper itself? |
 | Output | Command output written via `cmd.OutOrStdout()` so it's testable? |
 | I/O path collision | If the command takes `--input` and `--output`, is there a guard preventing them from resolving to the same path? |

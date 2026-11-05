@@ -1,6 +1,6 @@
 # Contributing
 
-This repository publishes six [Agent Skills](https://docs.claude.com/en/docs/claude-code/skills) for Go as a Claude Code marketplace. A contribution is usually one of:
+This repository publishes [Agent Skills](https://docs.claude.com/en/docs/claude-code/skills) for Go as a Claude Code marketplace. A contribution is usually one of:
 
 - a new skill,
 - a fix or expansion to an existing skill's `SKILL.md`,
@@ -20,7 +20,7 @@ One directory per skill at the repository root. Each directory is a single-skill
 ```
 
 - `SKILL.md` sits at the plugin root, not inside `.claude-plugin/`. Claude Code takes the invocation name from the frontmatter `name`.
-- The catalog-level `.claude-plugin/marketplace.json` lists every skill. The six skill directories and the six marketplace entries must correspond one to one — no orphan directories, no entries pointing at missing directories.
+- The catalog-level `.claude-plugin/marketplace.json` lists every skill. The skill directories and the marketplace entries must correspond one to one — no orphan directories, no entries pointing at missing directories.
 - `templates/` is scaffold, not a skill; it is excluded from the correspondence check.
 - The skills table in `README.md` lists every skill exactly once, each row linking to `./<skill>/SKILL.md`.
 
@@ -45,7 +45,7 @@ Do not repeat `description`, `version`, `author`, `homepage`, `repository`, `lic
 | Category | Use when the skill teaches | Currently |
 | --- | --- | --- |
 | `languages` | the Go language itself | `go`, `cobra-viper` |
-| `development` | an engineering workflow or practice | `go-spec-reviewer`, `go-release`, `fileflow-pathologize` |
+| `development` | an engineering workflow or practice | `go-spec-reviewer`, `go-release`, `fileflow-pathologize`, `afero` |
 | `frameworks` | a third-party framework or runtime | `wails` |
 
 ## Tags
@@ -59,9 +59,18 @@ Frontmatter requires `name` and `description`.
 - `name` must equal the skill directory name and `plugin.json.name`.
 - `description` is what drives model-invoked triggering. It must name the concrete contexts, file types, and phrases a user would actually say, and be at least 40 characters long. Past that bar, quality is judged in review — every current skill is a worked example.
 
+## Go code in skills
+
+`.github/scripts/check_skill_code.py` runs every skill against the latest stable Go toolchain, using that toolchain's own `stdversion` manifest as the record of which release introduced each standard-library symbol:
+
+- Every ```` ```go ```` fence, indented ones included, must parse with the toolchain's `gofmt`. Fragments are fine — a fence passes as a file, as declarations, as statements, or as declarations followed by statements, and `{ ... }` or a line of `...` marks elided code. Fence `go.mod` content and other non-Go text as ```` ```text ````.
+- Every standard-library symbol a skill names must exist: backticked prose such as `errors.AsType`, `sync.WaitGroup.Go` or `t.Context()`, and `pkg.Name` selectors inside fences. Names a skill takes from a non-standard module — an import in a fence, or a module path it mentions such as `github.com/wailsapp/wails/v2/pkg/runtime` — are skipped unless the skill also imports the standard package of that name, as are names a fence declares itself as variables (in that same fence only). A lowercase name after a package (`errors.go`) is a file, not an API. A bare `Type.Method` is checked only when its standard package is named on the same line.
+- Every standard-library version claim must name the right release. A claim is a `| 1.X | … |` row in a Since/Feature table, a heading ending in `(Go 1.X)`, or a backticked symbol written directly before `(Go 1.X)`. The claim's subject — its first symbol, or a package written as "the X package" — must have arrived exactly in 1.X; every other symbol must merely exist by then. A claim that records a behavior change ("`B.Loop` no longer inhibits inlining") has no subject, and a heading that names only a package as context ("`net/url` Clones") pins nothing. Language features have no symbol and are checked in review.
+- A claim about runtime or library *behavior* — what a decoder accepts, what a channel's capacity is — gets a test in `.github/claims/` (`go test ./...` there), naming the `SKILL.md` section it backs. When Go changes the behavior, the test turns red and the skill text changes with it.
+
 ## Versioning and release
 
-The catalog carries **one version across all six plugins**. They move together; there is no per-skill version.
+The catalog carries **one version across all plugins**. They move together; there is no per-skill version.
 
 To cut a release:
 
@@ -69,7 +78,7 @@ To cut a release:
 2. Add a matching entry to `CHANGELOG.md`.
 3. Commit, then create an annotated tag `vX.Y.Z` on that commit.
 
-CI asserts that all six versions are identical, that a commit tagged `vX.Y.Z` carries version `X.Y.Z`, that the version is never behind the latest existing tag, and that `CHANGELOG.md` has an entry for it. A version-bump pull request therefore passes before the tag exists; the tagged commit is what must match exactly.
+CI asserts that all plugin versions are identical, that a commit tagged `vX.Y.Z` carries version `X.Y.Z`, that the version is never behind the latest existing tag, and that `CHANGELOG.md` has an entry for it. A version-bump pull request therefore passes before the tag exists; the tagged commit is what must match exactly.
 
 ## Go release currency
 
@@ -93,6 +102,9 @@ For example, `go/SKILL.md` reads `… project layout, current through Go 1.27. U
 ```bash
 python3 -m pip install --user jsonschema
 
+# 0. The check scripts' own tests (the skill-code tests need Go 1.27+ on PATH)
+python3 -m unittest discover -s .github/scripts
+
 # 1. Manifests validate against the published schemastore schemas
 python3 .github/scripts/validate_manifests.py
 
@@ -101,8 +113,14 @@ python3 .github/scripts/check_invariants.py
 
 # 3. Go release currency (pass the value the workflow fetched)
 python3 .github/scripts/check_go_release.py "$(curl -fsS 'https://go.dev/dl/?mode=json' | jq -r '[.[] | select(.stable == true)][0].version')"
+#    where go.dev is blocked, the module proxy lists the same stable releases:
+python3 .github/scripts/check_go_release.py "$(curl -fsS https://proxy.golang.org/golang.org/toolchain/@v/list | sed -n 's/^v0\.0\.1-\(go[0-9]*\.[0-9]*\.[0-9]*\)\.linux-amd64$/\1/p' | sort -V | tail -1)"
 
-# 4. Links in README.md and CONTRIBUTING.md resolve
+# 4. Go fences parse and std version claims match (needs the latest stable Go on PATH)
+python3 .github/scripts/check_skill_code.py
+(cd .github/claims && go test ./...)
+
+# 5. Links in README.md and CONTRIBUTING.md resolve
 lychee README.md CONTRIBUTING.md
 ```
 

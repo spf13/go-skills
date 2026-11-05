@@ -17,9 +17,8 @@ from __future__ import annotations
 import os
 import re
 import sys
-from pathlib import Path
 
-from check_invariants import EXCLUDED, ROOT, frontmatter
+from check_invariants import declared_skills, frontmatter
 
 # Skills known to carry a `current through Go X.Y` claim. This is the recorded
 # baseline for "the claim must not silently disappear": the repository has no
@@ -29,24 +28,6 @@ CLAIMING_SKILLS = frozenset({"go"})
 
 CLAIM_RE = re.compile(r"current through Go (\d+\.\d+)")
 MINOR_RE = re.compile(r"(\d+)\.(\d+)")
-
-errors: list[str] = []
-
-
-def fail(message: str) -> None:
-    errors.append(message)
-
-
-def skill_dirs() -> dict[str, Path]:
-    """Root-level directories that are single-skill plugins."""
-    found: dict[str, Path] = {}
-    for path in sorted(ROOT.iterdir()):
-        if not path.is_dir() or path.name in EXCLUDED:
-            continue
-        if (path / ".claude-plugin" / "plugin.json").is_file():
-            found[path.name] = path
-    return found
-
 
 def requested_latest() -> str | None:
     """The latest stable version handed over by the workflow, argument first."""
@@ -78,8 +59,10 @@ def main() -> int:
         print(f"error: cannot parse a Go version from {latest!r}", file=sys.stderr)
         return 1
 
+    errors: list[str] = []
+    fail = errors.append
     checked = 0
-    for name, directory in skill_dirs().items():
+    for name, directory in declared_skills().items():
         description = frontmatter(directory / "SKILL.md").get("description", "")
         match = CLAIM_RE.search(description)
         if match is None:

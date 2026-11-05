@@ -17,15 +17,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 TAXONOMY = ("languages", "development", "frameworks")
 ENTRY_KEYS = {"name", "source", "category", "tags"}
-EXCLUDED = {"templates", ".github", ".git", ".claude-plugin", ".codegraph"}
+# Directories that are never skills, besides hidden ones (.git, .github, tool
+# state). Anything without a plugin.json is skipped anyway.
+EXCLUDED = {"templates"}
 MIN_DESCRIPTION = 40
-
-errors: list[str] = []
-
-
-def fail(message: str) -> None:
-    errors.append(message)
-
 
 def read_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
@@ -55,14 +50,14 @@ def declared_skills() -> dict[str, Path]:
     """Root-level directories that are single-skill plugins."""
     found: dict[str, Path] = {}
     for path in sorted(ROOT.iterdir()):
-        if not path.is_dir() or path.name in EXCLUDED:
+        if not path.is_dir() or path.name in EXCLUDED or path.name.startswith("."):
             continue
         if (path / ".claude-plugin" / "plugin.json").is_file():
             found[path.name] = path
     return found
 
 
-def readme_table_skills() -> list[str]:
+def readme_table_skills(fail) -> list[str]:
     """Skill names linked from the skills table in README.md."""
     pattern = re.compile(r"^\|\s*\[`([^`]+)`\]\(\./([^/]+)/SKILL\.md\)")
     names: list[str] = []
@@ -109,6 +104,8 @@ def semver(value: str) -> tuple[int, int, int] | None:
 
 
 def main() -> int:
+    errors: list[str] = []
+    fail = errors.append
     marketplace = read_json(ROOT / ".claude-plugin" / "marketplace.json")
     entries = marketplace.get("plugins", [])
     skills = declared_skills()
@@ -121,7 +118,7 @@ def main() -> int:
     for name in sorted(set(skills) - set(entry_names)):
         fail(f"skill directory '{name}' has no matching marketplace entry")
 
-    table_names = readme_table_skills()
+    table_names = readme_table_skills(fail)
     if sorted(table_names) != sorted(entry_names):
         fail(
             "README skills table must list every skill exactly once: "

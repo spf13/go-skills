@@ -111,7 +111,7 @@ When Go changes a behavior it cannot change silently, it stages the change behin
 
 - `asynctimerchan` (added in Go 1.23) is removed permanently in **Go 1.27** — `time` package channels are now always unbuffered.
 - The `goroutineleak` profile graduated: experimental via `GOEXPERIMENT=goroutineleakprofile` in **Go 1.26**, generally available in `runtime/pprof` and `/debug/pprof/goroutineleak` in **Go 1.27**, with the GOEXPERIMENT deleted.
-- `GOEXPERIMENT=nogreenteagc` (**Go 1.26**, Green Tea GC opt-out) and `GOEXPERIMENT=nosizespecializedmalloc` (**Go 1.27**, size-specialized allocation opt-out) are both announced as temporary — expected to be removed in Go 1.27 and Go 1.28 respectively.
+- `GOEXPERIMENT=nogreenteagc` (**Go 1.26**, Green Tea GC opt-out) and `GOEXPERIMENT=nosizespecializedmalloc` (**Go 1.27**, size-specialized allocation opt-out) are both announced as temporary. The Green Tea opt-out was slated for removal in Go 1.27 but still works there; the allocation opt-out is expected to go in Go 1.28. Treat both as deadlines either way.
 - `GOEXPERIMENT=nojsonv2` (**Go 1.27**) restores the pre-v2 `encoding/json` implementation and is likewise expected to be removed in a future release.
 
 An opt-out is a migration deadline, never a permanent escape:
@@ -154,7 +154,7 @@ The module proxy caches every tagged version permanently. **Never delete or re-t
 
 The correct fix is `retract`:
 
-```go
+```text
 // go.mod of a NEW release (e.g. v1.4.2)
 retract (
     v1.4.1 // Broke Parse on empty input; use v1.4.2.

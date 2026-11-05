@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "afero",
+  "displayName": "Testable Filesystems: afero",
+  "description": "Testable filesystem code in Go with spf13/afero — inject afero.Fs, test in memory with MemMapFs, layer ReadOnlyFs, CopyOnWriteFs and BasePathFs, and know where MemMapFs differs from a real disk.",
+  "version": "1.1.0",
+  "author": {
+    "name": "Steve Francia",
+    "email": "steve.francia@gmail.com"
+  },
+  "homepage": "https://github.com/spf13/go-skills",
+  "repository": "https://github.com/spf13/go-skills",
+  "license": "MIT",
+  "keywords": ["go", "golang", "files", "afero", "testing"]
+}
