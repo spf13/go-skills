@@ -5,10 +5,10 @@ Steve Francia's Go Agent Skills marketplace: six skill directories (`go`, `cobra
 ## Flag (medium or higher)
 
 - Checker/contract drift: a rule stated in `CONTRIBUTING.md` that `internal/check` does not enforce, or enforces differently — e.g. version equality that fails on an untagged version-bump PR (jobs 12, 13), tags↔keywords compared as ordered lists instead of sets, `templates/` not excluded, a `claimingSkills` claim added to a skill that only teaches individual features (§Go release currency).
-- Frontmatter contract in any edited `SKILL.md`: `name` must equal the directory and `plugin.json.name`; `description` opens `Use when…`, stays third person, carries no coercive activation or author-credential framing, and keeps the `current through Go X.Y` claim as a trailing clause only for skills listed in `claimingSkills`.
+- Frontmatter contract in any edited `SKILL.md`: `name` must equal the directory and `plugin.json.name`; `description` opens `Use when…` or `Use for…` (both accepted by `CONTRIBUTING.md` and `internal/check/manifest.go`), stays third person, carries no coercive activation or author-credential framing, and keeps the `current through Go X.Y` claim as a trailing clause only for skills listed in `claimingSkills`.
 - Catalog correspondence: a skill directory added/renamed/removed without matching `.claude-plugin/marketplace.json` and `plugin.json` versions/entries, or an entry whose `tags` diverge from `keywords`.
 - Documented commands and flags that the checker or CI does not actually accept — a `go run ./cmd/check` invocation, exit code (0/1/2), or `-root`/`-latest` behavior that contradicts `CONTRIBUTING.md:161`.
-- Compilable samples: a complete fenced `go` sample (with its own `package` clause) that would fail to build/vet, or a claim of Go-version support below the module floor.
+- Compilable samples: a complete fenced `go` sample (with its own `package` clause) that would fail to build/vet. The `go 1.22` module floor applies to this repo's own code (`cmd/`, `internal/`) only; skill and reference content may legitimately teach Go 1.21 and earlier behavior, and MUST NOT be flagged for it.
 
 ## Don't flag
 
