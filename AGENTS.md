@@ -10,13 +10,14 @@ Source repository for spf13's Go Agent Skills marketplace. The skills table in `
 
 ## Checks
 
-Run these before committing. CI runs the same set, plus a link check of `README.md` and `CONTRIBUTING.md`; a monthly workflow checks each skill's `current through Go X.Y` claim against the latest Go release (`check_go_release.py`, see `CONTRIBUTING.md`).
+Run these before committing. CI runs the same set, plus a link check of `README.md` and `CONTRIBUTING.md`; a monthly workflow hands the latest Go release to `go run ./cmd/check -latest` and fails when a skill's `current through Go X.Y` claim falls behind it (see `CONTRIBUTING.md`).
 
 ```bash
-python3 -m unittest discover -s .github/scripts
-python3 .github/scripts/check_invariants.py
-python3 .github/scripts/validate_manifests.py
-python3 .github/scripts/check_skill_code.py        # needs the latest stable Go on PATH
+go test ./...                                       # the checker's own tests
+go run ./cmd/check                                  # every catalog rule, hermetic, no network
+go run ./cmd/check -latest go1.27.3                 # add release currency (the workflow's value)
+python3 -m unittest discover -s .github/scripts      # tests for the skill-code check
+python3 .github/scripts/check_skill_code.py          # needs the latest stable Go on PATH
 (cd .github/claims && go test ./...)
 ```
 
