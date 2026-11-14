@@ -60,7 +60,7 @@ func NewFileProcessor(fs afero.Fs) *FileProcessor {
 }
 ```
 
-In tests, inject `afero.NewMemMapFs()` to completely eliminate disk I/O and prevent flaky, slow tests.
+In tests, inject `afero.NewMemMapFs()` to completely eliminate disk I/O and prevent flaky, slow tests. The `afero` skill covers where `MemMapFs` differs from a real disk and when read-only code should accept `fs.FS` instead.
 
 This rule governs **your** code's filesystem access. It does not reach inside a library that owns the syscalls: `fileflow.Move`/`Copy` take real path strings and use `MoveFileEx` (Windows) or link-and-remove/`os.Rename` (Unix), none of which a memory FS can model — so it is not afero-injectable, and its file operations are integration-tested instead. Do not try to fake a library's syscalls; wrap the library behind an interface you own (`type Mover interface { Move(src, dst string) (string, error) }`), fake that in unit tests, and keep one integration test on a real `t.TempDir()`. The seam is discussed on both sides: see `fileflow-pathologize` for the library's testability contract.
 

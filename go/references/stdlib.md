@@ -132,7 +132,7 @@ type Event struct {
 }
 ```
 
-At Go 1.27, `encoding/json` is backed by the `encoding/json/v2` implementation, whose defaults are stricter — it rejects invalid UTF-8 in JSON strings and duplicate names within an object; v1 marshaling and unmarshaling behavior is preserved but error message text may differ. The `cobra-viper` skill covers the config-decoding consequences.
+At Go 1.27, `encoding/json` runs on the `encoding/json/v2` implementation, but the v1 API keeps v1 behavior: duplicate object names are still accepted (last wins) and invalid UTF-8 is still replaced with U+FFFD. Only error message text may differ, so match decode errors by type, never by text. The stricter defaults — rejecting duplicate names and invalid UTF-8 — belong to the new `encoding/json/v2` package; use it where malformed input should fail. The `cobra-viper` skill shows this for config files.
 
 ### `uuid` package (Go 1.27)
 

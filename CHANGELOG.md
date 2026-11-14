@@ -2,25 +2,37 @@
 
 All notable changes to this catalog are documented here.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this catalog adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). One version covers all six plugins; they move together.
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this catalog adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). One version covers every plugin; they move together.
 
 ## [Unreleased]
 
-### Changed
-
-- Repository — the three Python CI scripts (`.github/scripts/{check_invariants,check_go_release,validate_manifests}.py`, plus a `pip install jsonschema`) are replaced by one hermetic Go checker: `cmd/check` over `internal/check`. It needs no network — the schemastore marketplace and plugin schemas are vendored in `internal/check/schemas/` — and it adds rules the scripts never had: the 500-line `SKILL.md` budget, the `## When NOT to Use This Skill` section, unresolved `[PLACEHOLDER]` tokens, `references/` link resolution, and compiling complete standard-library Go samples. `.roborev.toml` drops from 307 lines of empty defaults to a one-line comment.
-
 ### Added
 
+- `afero` — a new skill for testable filesystem code with `spf13/afero`: choosing between `afero.Fs`, `fs.FS` and `os.Root`; injecting the filesystem; the four ways `MemMapFs` differs from a disk (it creates missing parents, ignores permission bits, keeps rooted and relative keys apart, and is a weak `fs.FS`); `ReadOnlyFs`, `CopyOnWriteFs` as a free dry run, and why `BasePathFs` is not a security boundary. Every behavior was verified against afero v1.15.0 on Go 1.27.
 - `cobra-viper` — a **12-factor configuration** section (factor III, config in the environment): the environment supplies the values, the binary supplies only publishable defaults, precedence runs explicit `Set()` → bound flags → environment → config file → defaults, environment names are derived from one prefix plus a replacer, secrets never ship as defaults, and every non-secret knob is reachable by flag so `--help` documents it.
+- Repository — `.github/scripts/check_skill_code.py` and a `skill code` CI job: every Go fence in every skill must parse with the latest stable Go, every standard-library symbol a skill names must exist, and every standard-library version claim must match the toolchain's own `stdversion` manifest.
+- Repository — `.github/scripts/test_checks.py`, unit tests for `check_skill_code.py`, run in CI.
+- Repository — `.github/claims/`, a stdlib-only Go test suite that pins behavioral claims (JSON v1 vs v2 strictness, unbuffered timer channels, the removed `asynctimerchan` pin failing the build) so a Go release that changes them turns CI red.
 
 ### Changed
 
-- Routing — every one of the six descriptions is now trigger-only and closes by naming the sibling it defers to, and every skill body carries a `## When NOT to Use This Skill` section. `go` no longer claims every `.go` file, `go.mod`, CLI, or web service: Cobra/Viper CLI wiring, release mechanics, pre-implementation spec review, Wails desktop apps, and cross-filesystem moves with untrusted path segments all defer outward. "Release a CLI binary" now resolves to `go-release` from `cobra-viper` and `wails` as well as from `go`. `templates/skill/SKILL.md` carries the same section, and `CONTRIBUTING.md` § SKILL.md requires it for any new skill.
+- Repository — three of the Python CI scripts (`.github/scripts/{check_invariants,check_go_release,validate_manifests}.py`, plus a `pip install jsonschema`) are replaced by one hermetic Go checker: `cmd/check` over `internal/check`. It needs no network — the schemastore marketplace and plugin schemas are vendored in `internal/check/schemas/` — and it adds rules the scripts never had: the 500-line `SKILL.md` budget, the `## When NOT to Use This Skill` section, unresolved `[PLACEHOLDER]` tokens, `references/` link resolution, and compiling complete standard-library Go samples. `.roborev.toml` drops from 307 lines of empty defaults to a one-line comment.
+- Repository — `AGENTS.md` no longer names private machines or paths; it lists the checks CI runs and how to serve the skills from a local clone.
+- Repository — `check_skill_code.py` finds the skill directories itself and keeps no state between runs.
+- Routing — every description is now trigger-only and closes by naming the sibling it defers to, and every skill body carries a `## When NOT to Use This Skill` section. `go` no longer claims every `.go` file, `go.mod`, CLI, or web service: Cobra/Viper CLI wiring, release mechanics, pre-implementation spec review, Wails desktop apps, and cross-filesystem moves with untrusted path segments all defer outward. "Release a CLI binary" now resolves to `go-release` from `cobra-viper` and `wails` as well as from `go`. `templates/skill/SKILL.md` carries the same section, and `CONTRIBUTING.md` § SKILL.md requires it for any new skill.
+- `README.md` — "Channels before mutexes" states the rule the `go` skill teaches: channels where data can be passed, a mutex where it guards state.
+- `CONTRIBUTING.md` — documents the checker's exact rules and a module-proxy fallback for looking up the latest Go release.
 
 ### Fixed
 
-- `CHANGELOG.md` — the 1.1.0 summary claimed every Go skill states the release it covers. Only `go` does: `CLAIMING_SKILLS` in `.github/scripts/check_go_release.py` is `{"go"}`, and neither `go-release`, `go-spec-reviewer`, `cobra-viper`, `fileflow-pathologize`, nor `wails` carries a `current through Go X.Y` claim. The summary now says which skill claims, and `CONTRIBUTING.md` records why the rest do not.
+- `cobra-viper`, `go`, `go-spec-reviewer` — Go 1.27's `encoding/json` does **not** reject duplicate object names or invalid UTF-8; the v1 API keeps v1 behavior on the v2 implementation, and only `encoding/json/v2` is strict. The skills said the opposite, warning that working JSON config files would start failing. `cobra-viper` now shows how to validate a config file with `encoding/json/v2` before Viper reads it.
+- `go`, `go-release` — the `GOEXPERIMENT=nogreenteagc` opt-out was forecast for removal in Go 1.27 but still works there.
+- `go-release` — a `go.mod` `retract` block was fenced as Go code.
+- `go-spec-reviewer` — named a nonexistent `cobra.Args` type; Cobra's validators are `cobra.PositionalArgs` set on a command's `Args` field.
+- `go` — the version index now lists the Go 1.27 `encoding/json/v2` and `encoding/json/jsontext` packages.
+- `cobra-viper` — notes that `GOEXPERIMENT=nojsonv2` also removes `encoding/json/v2`.
+- `afero` — the description led with author credentials and the body had no `## When NOT to Use This Skill` section; both now follow the standard.
+- `CHANGELOG.md` — the 1.1.0 summary claimed every Go skill states the release it covers. Only `go` does: `claimingSkills` in `internal/check/release.go` is `{"go"}`, and neither `go-release`, `go-spec-reviewer`, `cobra-viper`, `fileflow-pathologize`, nor `wails` carries a `current through Go X.Y` claim. The summary now says which skill claims, and `CONTRIBUTING.md` records why the rest do not.
 - `README.md`, `CHANGELOG.md` — "12-factor configuration" in the `cobra-viper` description is now backed by a section in `cobra-viper/SKILL.md` instead of being asserted only by the catalog prose.
 
 [Unreleased]: https://github.com/spf13/go-skills/compare/v1.1.0...HEAD

@@ -4,3 +4,5 @@
 # local VS Code workspace file; belongs to the spf13.com-private project
 spf13.com-private.code-workspace
 .worktrees/
+__pycache__/
+*.pyc

@@ -432,3 +432,4 @@ if pathErr, ok := errors.AsType[*fs.PathError](err); ok {
 Below Go 1.26, `errors.As` with `&target` remains the required form; it is correct and supported on every version.
 
 
+

@@ -5,7 +5,7 @@
     "name": "Steve Francia",
     "email": "steve.francia@gmail.com"
   },
-  "description": "Authoritative Go skills for Claude Code — written by spf13 (creator of Cobra, Viper, Hugo). Covers idiomatic Go, CLI architecture, spec review, release engineering, desktop apps, and file operations.",
+  "description": "Authoritative Go skills for Claude Code — written by spf13 (creator of Cobra, Viper, Hugo). Covers idiomatic Go, CLI architecture, spec review, release engineering, desktop apps, file operations, and testable filesystems.",
   "plugins": [
     {
       "name": "go",
@@ -42,6 +42,12 @@
       "source": "./fileflow-pathologize",
       "category": "development",
       "tags": ["go", "golang", "files", "fileflow", "pathologize"]
+    },
+    {
+      "name": "afero",
+      "source": "./afero",
+      "category": "development",
+      "tags": ["go", "golang", "files", "afero", "testing"]
     }
   ]
 }

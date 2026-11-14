@@ -406,9 +406,9 @@ db:
   name: myapp
 ```
 
-### 6. JSON Strictness (Go 1.27)
+### 6. JSON Config Files Under Go 1.27's `encoding/json`
 
-Go 1.27 backs `encoding/json` with `encoding/json/v2` — duplicate keys and invalid UTF-8 in JSON strings now fail where they once slipped through. A `.json` config that parsed before can now fail in `PersistentPreRunE` before `RunE` runs. Hatches: `encoding/json.Options` for v1 behavior, or `GOEXPERIMENT=nojsonv2` (temporary, will be removed). Prefer fixing the file. Details: [references/viper-config.md](references/viper-config.md).
+Go 1.27 runs `encoding/json` on the `encoding/json/v2` implementation, but the v1 API keeps v1 behavior: duplicate object names still take the last value, invalid UTF-8 still becomes U+FFFD, and only decode error *text* may change — match by type, never by message. Viper decodes `.json` through `encoding/json`, so an existing config still loads. Strict decoding belongs to the new `encoding/json/v2` package (Go 1.27): to make a duplicated key a startup error, validate the raw bytes with it before `ReadConfig`. Validation snippet, `GOEXPERIMENT=nojsonv2`, and the `mapstructure` note: [references/viper-config.md](references/viper-config.md).
 
 ### 7. Writing Configuration Back
 
@@ -486,7 +486,7 @@ func TestServeCommand(t *testing.T) {
 
 - **Executing a subcommand variable directly in tests**: `serverCmd.Execute()` runs the whole tree from the root, not just that command. Build fresh trees with a factory and drive them through `SetArgs`.
 - **Env-only values missing after `Unmarshal`**: `AutomaticEnv` doesn't register keys. `SetDefault` or `BindEnv` every key in your config struct (see the gotcha above).
-- **Assuming a JSON config that once parsed still parses**: since Go 1.27 the decoder rejects invalid UTF-8 and duplicate object names, so a config file can start failing at `ReadInConfig` on a toolchain upgrade alone (see §6 above).
+- **Assuming Go 1.27 made JSON config decoding strict**: `encoding/json` still accepts duplicate object names (last wins) and invalid UTF-8; only `encoding/json/v2` rejects them. If a duplicated key should stop the command, validate with `encoding/json/v2` before `ReadConfig` (see §6 above).
 - **Deprecating without a migration path**: `MarkDeprecated(name, "")` and `Deprecated: "deprecated"` leave users with a warning and no replacement, and deleting in the same release strands every script. Name the successor and keep the old form parsing until the next major (Cobra §10).
 - **`WriteConfig` on a first run**: it writes to a path Viper *found*, so with no config file yet it returns the very `ConfigFileNotFoundError` your loader ignored. Resolve the path and use `SafeWriteConfigAs`/`WriteConfigAs` for `init`-style commands (Viper §7).
 - **Accessing Viper before config is loaded**: values are empty until your setup has run (`PersistentPreRunE` or `cobra.OnInitialize`). Don't read Viper in `init()` functions or `var` blocks.

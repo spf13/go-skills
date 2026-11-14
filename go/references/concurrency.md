@@ -52,6 +52,6 @@ Consequences when consuming timers and tickers:
 
 Behavior to know about so you neither chase it nor "fix" it:
 
-- **Green Tea GC (Go 1.26)** — enabled by default; 10–40% less GC overhead. Opt out with `GOEXPERIMENT=nogreenteagc` (expected to be removed in Go 1.27).
+- **Green Tea GC (Go 1.26)** — enabled by default; 10–40% less GC overhead. Opt out with `GOEXPERIMENT=nogreenteagc`; announced as temporary, it still works in Go 1.27.
 - **Heap base address randomization (Go 1.26)** — on 64-bit platforms allocated objects no longer sit at predictable addresses. Opt out with `GOEXPERIMENT=norandomizedheapbase64`.
 - **Size-specialized small allocations (Go 1.27)** — allocations below 80 bytes are up to 30% cheaper, at the cost of roughly 60 KB of binary size. Opt out with `GOEXPERIMENT=nosizespecializedmalloc` (expected to be removed in Go 1.28).

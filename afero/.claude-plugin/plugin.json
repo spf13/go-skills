@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "afero",
+  "displayName": "Testable Filesystems: afero",
+  "description": "Use when Go code reads, writes, or walks files and must be unit-tested without touching disk. Injects afero.Fs in place of os, tests in memory with MemMapFs, layers ReadOnlyFs, CopyOnWriteFs and BasePathFs, bridges to io/fs, and covers where MemMapFs differs from a real disk. Also for a --dry-run that must not write, and for choosing between afero, io/fs with testing/fstest, and os.Root. Defers to go for filesystem code with no test seam, and to fileflow-pathologize for turning untrusted names into safe paths.",
+  "version": "1.1.0",
+  "author": {
+    "name": "Steve Francia",
+    "email": "steve.francia@gmail.com"
+  },
+  "homepage": "https://github.com/spf13/go-skills",
+  "repository": "https://github.com/spf13/go-skills",
+  "license": "MIT",
+  "keywords": ["go", "golang", "files", "afero", "testing"]
+}

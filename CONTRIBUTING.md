@@ -1,6 +1,6 @@
 # Contributing
 
-This repository publishes six [Agent Skills](https://docs.claude.com/en/docs/claude-code/skills) for Go as a Claude Code marketplace. A contribution is usually one of:
+This repository publishes [Agent Skills](https://docs.claude.com/en/docs/claude-code/skills) for Go as a Claude Code marketplace. A contribution is usually one of:
 
 - a new skill,
 - a fix or expansion to an existing skill's `SKILL.md`,
@@ -20,7 +20,7 @@ One directory per skill at the repository root. Each directory is a single-skill
 ```
 
 - `SKILL.md` sits at the plugin root, not inside `.claude-plugin/`. Claude Code takes the invocation name from the frontmatter `name`.
-- The catalog-level `.claude-plugin/marketplace.json` lists every skill. The six skill directories and the six marketplace entries must correspond one to one — no orphan directories, no entries pointing at missing directories.
+- The catalog-level `.claude-plugin/marketplace.json` lists every skill. The skill directories and the marketplace entries must correspond one to one — no orphan directories, no entries pointing at missing directories.
 - `templates/` is scaffold, not a skill; it is excluded from the correspondence check.
 - The skills table in `README.md` lists every skill exactly once, each row linking to `./<skill>/SKILL.md`.
 
@@ -54,7 +54,7 @@ Do not repeat `description`, `version`, `author`, `homepage`, `repository`, `lic
 | Category | Use when the skill teaches | Currently |
 | --- | --- | --- |
 | `languages` | the Go language itself | `go`, `cobra-viper` |
-| `development` | an engineering workflow or practice | `go-spec-reviewer`, `go-release`, `fileflow-pathologize` |
+| `development` | an engineering workflow or practice | `go-spec-reviewer`, `go-release`, `fileflow-pathologize`, `afero` |
 | `frameworks` | a third-party framework or runtime | `wails` |
 
 ## Tags
@@ -110,13 +110,22 @@ description: >
   -gcflags=-m, and cutting allocation counts. Not for correctness bugs; use the go skill.
 ```
 
-`templates/skill/SKILL.md` carries that example as a whole file. The six shipped skills predate this rule and none of them conforms: fix one where you are already editing it, and do not treat the current six as models.
+`templates/skill/SKILL.md` carries that example as a whole file. The skills shipped before this rule did not all conform: fix one where you are already editing it, and do not treat the existing set as models.
 
 Every skill body MUST carry a `## When NOT to Use This Skill` section naming the siblings it defers to, so that overlapping triggers resolve without a priority table. A new skill MUST include one, and an edit to an existing skill MUST add one where it is missing.
 
+## Go code in skills
+
+`.github/scripts/check_skill_code.py` runs every skill against the latest stable Go toolchain, using that toolchain's own `stdversion` manifest as the record of which release introduced each standard-library symbol:
+
+- Every ```` ```go ```` fence, indented ones included, must parse with the toolchain's `gofmt`. Fragments are fine — a fence passes as a file, as declarations, as statements, or as declarations followed by statements, and `{ ... }` or a line of `...` marks elided code. Fence `go.mod` content and other non-Go text as ```` ```text ````.
+- Every standard-library symbol a skill names must exist: backticked prose such as `errors.AsType`, `sync.WaitGroup.Go` or `t.Context()`, and `pkg.Name` selectors inside fences. Names a skill takes from a non-standard module — an import in a fence, or a module path it mentions such as `github.com/wailsapp/wails/v2/pkg/runtime` — are skipped unless the skill also imports the standard package of that name, as are names a fence declares itself as variables (in that same fence only). A lowercase name after a package (`errors.go`) is a file, not an API. A bare `Type.Method` is checked only when its standard package is named on the same line.
+- Every standard-library version claim must name the right release. A claim is a `| 1.X | … |` row in a Since/Feature table, a heading ending in `(Go 1.X)`, or a backticked symbol written directly before `(Go 1.X)`. The claim's subject — its first symbol, or a package written as "the X package" — must have arrived exactly in 1.X; every other symbol must merely exist by then. A claim that records a behavior change ("`B.Loop` no longer inhibits inlining") has no subject, and a heading that names only a package as context ("`net/url` Clones") pins nothing. Language features have no symbol and are checked in review.
+- A claim about runtime or library *behavior* — what a decoder accepts, what a channel's capacity is — gets a test in `.github/claims/` (`go test ./...` there), naming the `SKILL.md` section it backs. When Go changes the behavior, the test turns red and the skill text changes with it.
+
 ## Versioning and release
 
-The catalog carries **one version across all six plugins**. They move together; there is no per-skill version.
+The catalog carries **one version across all plugins**. They move together; there is no per-skill version.
 
 To cut a release:
 
@@ -124,7 +133,7 @@ To cut a release:
 2. Add a matching entry to `CHANGELOG.md`.
 3. Commit, then create an annotated tag `vX.Y.Z` on that commit.
 
-CI asserts that all six versions are identical, that a commit tagged `vX.Y.Z` carries version `X.Y.Z`, that the version is never behind the latest existing tag, and that `CHANGELOG.md` has an entry for it. A version-bump pull request therefore passes before the tag exists; the tagged commit is what must match exactly.
+CI asserts that all plugin versions are identical, that a commit tagged `vX.Y.Z` carries version `X.Y.Z`, that the version is never behind the latest existing tag, and that `CHANGELOG.md` has an entry for it. A version-bump pull request therefore passes before the tag exists; the tagged commit is what must match exactly.
 
 ## Go release currency
 
@@ -153,6 +162,12 @@ go run ./cmd/check          # every rule, against the working tree (hermetic, no
 
 # Go release currency, with the value the scheduled workflow fetched:
 go run ./cmd/check -latest go1.27.3    # or GO_RELEASE_LATEST=go1.27.3 go run ./cmd/check
+
+# The skill-code checker's own tests, then every Go fence and std version claim
+# (both need the latest stable Go on PATH):
+python3 -m unittest discover -s .github/scripts
+python3 .github/scripts/check_skill_code.py
+(cd .github/claims && go test ./...)
 
 # Links in README.md and CONTRIBUTING.md resolve
 lychee README.md CONTRIBUTING.md

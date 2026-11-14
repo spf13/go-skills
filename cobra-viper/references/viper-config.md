@@ -1,13 +1,36 @@
-# Viper: JSON Strictness and Writing Configuration Back
+# Viper: JSON Config Files and Writing Configuration Back
 
-## JSON Config Files Are Decoded Strictly (Go 1.27)
+## JSON Config Files Under Go 1.27's `encoding/json`
 
-Since Go 1.27, `encoding/json` v2 semantics apply: duplicate keys and invalid
-UTF-8 in JSON strings are rejected. Viper reads JSON through `mapstructure`
-which inherits this strictness when the module's floor is Go 1.27+. A config file
-with `{"a":1,"a":2}` now fails where it once silently took the last value.
-Guard with `viper.SetConfigType` or a build-tag-gated permissive path if you
-must tolerate legacy files.
+Since Go 1.27, `encoding/json` runs on the `encoding/json/v2` implementation,
+and Viper decodes `.json` config files with `encoding/json`. The v1 API keeps v1
+semantics on the new engine, so `{"a":1,"a":2}` still takes the last value and
+invalid UTF-8 is still replaced with U+FFFD. What can change is error *text*:
+never match a JSON decode error by message, match by type.
+
+Strict decoding belongs to the `encoding/json/v2` package. To make a duplicate
+key fail at startup, validate the raw bytes with it before `ReadConfig`:
+
+```go
+import jsonv2 "encoding/json/v2"
+
+data, err := os.ReadFile(path)
+if err != nil {
+    return err
+}
+var probe any
+if err := jsonv2.Unmarshal(data, &probe); err != nil {
+    return fmt.Errorf("config %s: %w", path, err)
+}
+v.SetConfigType("json")
+if err := v.ReadConfig(bytes.NewReader(data)); err != nil {
+    return err
+}
+```
+
+`GOEXPERIMENT=nojsonv2` restores the old implementation process-wide and removes
+`encoding/json/v2`, so the check above stops compiling under it. `v.Unmarshal`
+is unaffected: it maps fields with `mapstructure` tags, not `encoding/json`.
 
 `v.Debug()` prints the merged settings map — use it when a key is not where you expect.
 
